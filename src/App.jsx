@@ -62,7 +62,7 @@ export default function App() {
     setSelectedItemId(null);
 
     try {
-      const prompt = "Analyze this receipt and extract the items, prices, total, and currency symbol. Return as JSON.";
+      const prompt = "Analyze this receipt image. Extract all line items with their prices, the total amount, and the currency symbol. Return ONLY a JSON object with this exact structure: {\"items\": [{\"name\": \"item name\", \"price\": 0.00}], \"total\": 0.00, \"currencySymbol\": \"$\"}";
       const result = await callAI(prompt, base64, mimeType);
       
       if (result.items) {
@@ -81,38 +81,41 @@ export default function App() {
     }
   };
 
+  // Convert HEIC using heic-decode (pure JS decoder) + canvas for JPEG encoding
   const convertHeicToJpeg = async (file) => {
-    // #region agent log
-    fetch('http://127.0.0.1:7251/ingest/31b76d65-8992-46f3-8685-3063626d4296',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.jsx:convertHeicToJpeg:start',message:'Starting dynamic import',data:{fileName:file.name,fileSize:file.size},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
-    // #endregion
+    // Read file as ArrayBuffer, then convert to Uint8Array (required by heic-decode)
+    const arrayBuffer = await file.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
     
-    // Dynamic import - this is the key to making heic2any work with Vite
-    const heic2any = (await import('heic2any')).default;
+    // Dynamic import heic-decode
+    const decode = (await import('heic-decode')).default;
     
-    // #region agent log
-    fetch('http://127.0.0.1:7251/ingest/31b76d65-8992-46f3-8685-3063626d4296',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.jsx:convertHeicToJpeg:imported',message:'heic2any imported',data:{heic2anyType:typeof heic2any},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
-    // #endregion
+    // Decode HEIC to raw pixel data
+    const { width, height, data } = await decode({ buffer: uint8Array });
     
-    const blob = await heic2any({
-      blob: file,
-      toType: 'image/jpeg',
-      quality: 0.8
+    // Create canvas and draw pixel data
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    const imageData = new ImageData(new Uint8ClampedArray(data), width, height);
+    ctx.putImageData(imageData, 0, 0);
+    
+    // Convert canvas to JPEG blob
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (blob) {
+          resolve(blob);
+        } else {
+          reject(new Error('Canvas toBlob failed'));
+        }
+      }, 'image/jpeg', 0.85);
     });
-    
-    // #region agent log
-    fetch('http://127.0.0.1:7251/ingest/31b76d65-8992-46f3-8685-3063626d4296',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.jsx:convertHeicToJpeg:converted',message:'Conversion complete',data:{blobType:typeof blob,isArray:Array.isArray(blob)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3'})}).catch(()=>{});
-    // #endregion
-    
-    return Array.isArray(blob) ? blob[0] : blob;
   };
 
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
-    // #region agent log
-    fetch('http://127.0.0.1:7251/ingest/31b76d65-8992-46f3-8685-3063626d4296',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.jsx:handleFileChange:start',message:'File selected',data:{fileName:file.name,fileType:file.type,fileSize:file.size},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
-    // #endregion
 
     setIsScanning(true);
     setError(null);
@@ -124,20 +127,10 @@ export default function App() {
       const isHeic = fileName.endsWith('.heic') || fileName.endsWith('.heif') || 
                      file.type === 'image/heic' || file.type === 'image/heif';
 
-      // #region agent log
-      fetch('http://127.0.0.1:7251/ingest/31b76d65-8992-46f3-8685-3063626d4296',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.jsx:handleFileChange:detection',message:'HEIC detection result',data:{isHeic,fileName,fileType:file.type},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
-      // #endregion
-
       if (isHeic) {
         try {
           fileToProcess = await convertHeicToJpeg(file);
-          // #region agent log
-          fetch('http://127.0.0.1:7251/ingest/31b76d65-8992-46f3-8685-3063626d4296',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.jsx:handleFileChange:conversionSuccess',message:'HEIC conversion succeeded',data:{convertedSize:fileToProcess.size,convertedType:fileToProcess.type},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3'})}).catch(()=>{});
-          // #endregion
         } catch (conversionError) {
-          // #region agent log
-          fetch('http://127.0.0.1:7251/ingest/31b76d65-8992-46f3-8685-3063626d4296',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.jsx:handleFileChange:conversionError',message:'HEIC conversion failed',data:{error:conversionError.message,stack:conversionError.stack},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3'})}).catch(()=>{});
-          // #endregion
           setError("Could not convert HEIC. Please convert to JPEG first.");
           setIsScanning(false);
           return;
@@ -152,18 +145,11 @@ export default function App() {
         reader.readAsDataURL(fileToProcess);
       });
 
-      // #region agent log
-      fetch('http://127.0.0.1:7251/ingest/31b76d65-8992-46f3-8685-3063626d4296',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.jsx:handleFileChange:fileRead',message:'File read complete',data:{base64Length:base64.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H4'})}).catch(()=>{});
-      // #endregion
-
       const base64Data = base64.split(',')[1];
       const mimeType = isHeic ? 'image/jpeg' : base64.split(',')[0].split(':')[1].split(';')[0];
       
       await processImage(base64Data, mimeType);
     } catch (err) {
-      // #region agent log
-      fetch('http://127.0.0.1:7251/ingest/31b76d65-8992-46f3-8685-3063626d4296',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.jsx:handleFileChange:outerError',message:'Outer catch triggered',data:{error:err.message,stack:err.stack},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H5'})}).catch(()=>{});
-      // #endregion
       setError(err.message || "Failed to process image.");
       setIsScanning(false);
     }
@@ -237,14 +223,56 @@ export default function App() {
   const longPress = useLongPress((id) => setMenuId(id));
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 pb-32 font-sans select-none overflow-x-hidden">
+    <div 
+      className="min-h-screen bg-slate-50 text-slate-900 font-sans select-none"
+      style={{ paddingBottom: viewMode === VIEW_MODES.PEOPLE ? '160px' : '40px' }}
+    >
       <Header 
         viewMode={viewMode}
         setViewMode={setViewMode}
         onUploadClick={() => uploadInputRef.current?.click()}
         isScanning={isScanning}
         hasItems={items.length > 0}
-      />
+        isAddingPerson={isAddingPerson}
+        startAdding={startAdding}
+        addPreview={addPreview}
+        pendingName={pendingName}
+        setPendingName={setPendingName}
+        onFinalizePerson={handleFinalizePerson}
+        personInputRef={personInputRef}
+        currency={currency}
+        peopleCount={people.length}
+      >
+        {people.map(p => (
+          <PersonCard 
+            key={p.id}
+            person={p}
+            isAssigned={selectedItemId && (assignments[selectedItemId] || []).includes(p.id)}
+            isEditing={editingPersonId === p.id}
+            isMenuOpen={menuId === p.id}
+            total={personTotals[p.id].total}
+            currency={currency}
+            onPress={(id) => {
+              if (menuId) setMenuId(null);
+              else if (selectedItemId) toggleAssignment(selectedItemId, id);
+            }}
+            onEdit={startEditing}
+            onDelete={deletePerson}
+            onCloseMenu={() => setMenuId(null)}
+            pendingName={pendingName}
+            setPendingName={setPendingName}
+            onFinalize={handleFinalizePerson}
+            inputRef={personInputRef}
+            longPressProps={{
+              onMouseDown: () => longPress.onMouseDown(p.id),
+              onMouseUp: () => longPress.onMouseUp(),
+              onMouseLeave: () => longPress.onMouseLeave(),
+              onTouchStart: () => longPress.onTouchStart(p.id),
+              onTouchEnd: () => longPress.onTouchEnd(),
+            }}
+          />
+        ))}
+      </Header>
       
       <input 
         type="file" 
@@ -349,50 +377,7 @@ export default function App() {
           setViewMode={setViewMode}
           unassignedItems={unassignedItems}
           currency={currency}
-          isAddingPerson={isAddingPerson}
-          startAdding={startAdding}
-          addPreview={addPreview}
-          pendingName={pendingName}
-          setPendingName={setPendingName}
-          onFinalizePerson={handleFinalizePerson}
-          personInputRef={personInputRef}
-        >
-          {people.map(p => (
-            <PersonCard 
-              key={p.id}
-              person={p}
-              isAssigned={selectedItemId && (assignments[selectedItemId] || []).includes(p.id)}
-              isEditing={editingPersonId === p.id}
-              isMenuOpen={menuId === p.id}
-              total={personTotals[p.id].total}
-              currency={currency}
-              onPress={(id) => {
-                if (menuId) setMenuId(null);
-                else if (selectedItemId) toggleAssignment(selectedItemId, id);
-              }}
-              onEdit={startEditing}
-              onDelete={deletePerson}
-              onCloseMenu={() => setMenuId(null)}
-              pendingName={pendingName}
-              setPendingName={setPendingName}
-              onFinalize={handleFinalizePerson}
-              inputRef={personInputRef}
-              longPressProps={{
-                onMouseDown: () => longPress.onMouseDown(p.id),
-                onMouseUp: () => longPress.onMouseUp(() => {
-                  if (menuId) setMenuId(null);
-                  else if (selectedItemId) toggleAssignment(selectedItemId, p.id);
-                }),
-                onMouseLeave: () => longPress.onMouseLeave(),
-                onTouchStart: () => longPress.onTouchStart(p.id),
-                onTouchEnd: () => longPress.onMouseUp(() => {
-                  if (menuId) setMenuId(null);
-                  else if (selectedItemId) toggleAssignment(selectedItemId, p.id);
-                }),
-              }}
-            />
-          ))}
-        </BottomBar>
+        />
       )}
     </div>
   );

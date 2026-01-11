@@ -3,7 +3,7 @@ export const MODEL_NAME = "gemini-2.0-flash-exp"; // Updated to a more standard 
 export const PRESETS = [
   { emoji: '🐙', color: '#FFA8E4', border: '#CC86B6' },
   { emoji: '🪼', color: '#A8D5FF', border: '#86AAD1' },
-  { emoji: 'FOX', emojiChar: '🦊', color: '#FFE7BD', border: '#CCB997' }, // Fixed some inconsistencies if any, but sticking to user's style
+  { emoji: '🦊', color: '#FFE7BD', border: '#CCB997' },
   { emoji: '🐸', color: '#C0FFB8', border: '#9AC993' },
   { emoji: '🦁', color: '#FFBC70', border: '#CC965A' },
   { emoji: '🐻', color: '#F4D5B8', border: '#C2AA93' },

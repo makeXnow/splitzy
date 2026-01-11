@@ -18,30 +18,33 @@ export default function PersonCard({
   inputRef,
   longPressProps
 }) {
-  const cardBase = "relative flex items-center gap-3 p-3 pr-4 rounded-2xl cursor-pointer transition-all duration-300 border-2 min-w-[140px] min-h-[68px]";
+  const cardBase = "relative flex flex-col items-center justify-center gap-1 p-2.5 rounded-2xl cursor-pointer transition-all duration-300 border-2 shrink-0 w-fit min-w-[64px] h-[96px]";
 
   if (isEditing) {
     return (
       <form 
         onSubmit={(e) => { e.preventDefault(); onFinalize(); }} 
-        className={`${cardBase} bg-white border-indigo-500 shrink-0`}
+        className={`${cardBase} border-indigo-500 shadow-xl scale-110 z-20 mx-2`}
+        style={{ backgroundColor: person.color }}
       >
-        <div 
-          className="w-10 h-10 rounded-xl flex items-center justify-center text-2xl shrink-0" 
-          style={{ backgroundColor: person.color }}
-        >
+        <div className="text-3xl leading-none py-1">
           {person.emoji}
         </div>
-        <div className="min-w-0 flex flex-col justify-center">
-          <input 
-            ref={inputRef} 
-            type="text" 
-            value={pendingName} 
-            onChange={(e) => setPendingName(e.target.value)} 
-            onBlur={onFinalize} 
-            className="w-full bg-transparent border-none p-0 text-sm font-bold focus:ring-0 outline-none leading-tight" 
-          />
-          <p className="text-[10px] text-slate-400 font-black leading-none mt-1">
+        <div className="min-w-0 flex flex-col items-center px-2">
+          <div className="grid items-center">
+            <span className="col-start-1 row-start-1 invisible font-black text-xs leading-tight whitespace-pre text-center text-slate-900 px-1">
+              {pendingName}
+            </span>
+            <input 
+              ref={inputRef} 
+              type="text" 
+              value={pendingName} 
+              onChange={(e) => setPendingName(e.target.value)} 
+              onBlur={onFinalize} 
+              className="col-start-1 row-start-1 w-0 min-w-full bg-transparent border-none p-0 text-xs font-black focus:ring-0 outline-none leading-tight text-center text-slate-900" 
+            />
+          </div>
+          <p className="text-[9px] text-slate-900/60 font-black leading-none mt-1 text-center">
             {currency}{total.toFixed(2)}
           </p>
         </div>
@@ -52,44 +55,48 @@ export default function PersonCard({
   return (
     <div 
       {...longPressProps}
+      onClick={() => onPress(person.id)}
       className={`${cardBase} ${
         isAssigned 
-          ? 'bg-white shadow-lg scale-[1.05] z-10' 
-          : 'bg-white shadow-sm border-transparent'
-      } active:scale-95`}
-      style={{ borderColor: isAssigned ? person.border : 'transparent' }}
+          ? 'shadow-lg scale-110 z-10 border-black/20 mx-3' 
+          : 'shadow-sm border-black/5'
+      } active:scale-95 group`}
+      style={{ 
+        backgroundColor: person.color,
+      }}
     >
-      <div 
-        className="w-10 h-10 rounded-xl flex items-center justify-center text-2xl shrink-0" 
-        style={{ backgroundColor: person.color }}
-      >
+      <div className={`absolute inset-0 rounded-2xl transition-opacity duration-300 ${isAssigned ? 'opacity-10 bg-black' : 'opacity-0'}`} />
+      
+      <div className="text-3xl leading-none py-1 transition-transform duration-300 relative">
         {person.emoji}
       </div>
-      <div className="min-w-0 flex-1">
-        <p className="font-bold text-sm leading-tight break-words">{person.name}</p>
-        <p className="text-[10px] text-slate-400 font-black leading-none mt-1">
+      <div className="min-w-0 flex flex-col items-center relative px-2">
+        <p className="font-black text-xs leading-tight text-center text-slate-900 whitespace-nowrap">{person.name}</p>
+        <p className="text-[9px] text-slate-900/60 font-black leading-none mt-1 text-center">
           {currency}{total.toFixed(2)}
         </p>
       </div>
       {isMenuOpen && (
-        <div className="absolute inset-0 bg-white/95 rounded-2xl flex items-center justify-around z-20 animate-in fade-in zoom-in duration-200">
-          <button 
-            onClick={(e) => { e.stopPropagation(); onEdit(person); }} 
-            className="p-2 text-indigo-500 bg-indigo-50 rounded-full hover:scale-110 transition-transform"
-          >
-            <Pencil size={20} />
-          </button>
-          <button 
-            onClick={(e) => { e.stopPropagation(); onDelete(person.id); }} 
-            className="p-2 text-rose-500 bg-rose-50 rounded-full hover:scale-110 transition-transform"
-          >
-            <Trash2 size={20} />
-          </button>
+        <div className="absolute inset-0 bg-white/95 rounded-2xl flex flex-col items-center justify-center gap-2 z-20 animate-in fade-in zoom-in duration-200">
+          <div className="flex gap-2">
+            <button 
+              onClick={(e) => { e.stopPropagation(); onEdit(person); }} 
+              className="p-1.5 text-indigo-500 bg-indigo-50 rounded-lg hover:scale-110 transition-transform"
+            >
+              <Pencil size={14} />
+            </button>
+            <button 
+              onClick={(e) => { e.stopPropagation(); onDelete(person.id); }} 
+              className="p-1.5 text-rose-500 bg-rose-50 rounded-lg hover:scale-110 transition-transform"
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
           <button 
             onClick={(e) => { e.stopPropagation(); onCloseMenu(); }} 
-            className="p-2 text-slate-400 bg-slate-50 rounded-full"
+            className="p-1 text-slate-400 bg-slate-50 rounded-lg"
           >
-            <X size={20} />
+            <X size={14} />
           </button>
         </div>
       )}

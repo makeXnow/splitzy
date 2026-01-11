@@ -12,19 +12,15 @@ export function useLongPress(onLongPress, ms = 600) {
     }, ms);
   }, [onLongPress, ms]);
 
-  const stop = useCallback((onClick) => {
+  const stop = useCallback(() => {
     clearTimeout(timerRef.current);
-    if (!isHoldRef.current && onClick) {
-      onClick();
-    }
-    isHoldRef.current = false;
   }, []);
 
   return {
-    onMouseDown: (id, onClick) => start(id),
-    onMouseUp: (onClick) => stop(onClick),
-    onMouseLeave: () => clearTimeout(timerRef.current),
+    onMouseDown: (id) => start(id),
+    onMouseUp: () => stop(),
+    onMouseLeave: () => stop(),
     onTouchStart: (id) => start(id),
-    onTouchEnd: (onClick) => stop(onClick),
+    onTouchEnd: () => stop(),
   };
 }
