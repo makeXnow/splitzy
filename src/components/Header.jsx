@@ -1,10 +1,7 @@
 import React from 'react';
-import { FileText, Users, Loader2, Plus, ArrowLeft } from 'lucide-react';
-import { VIEW_MODES } from '../constants';
+import { Loader2, Plus, ArrowLeft } from 'lucide-react';
 
 export default function Header({ 
-  viewMode, 
-  setViewMode, 
   onUploadClick, 
   isScanning, 
   hasItems,
@@ -22,9 +19,13 @@ export default function Header({
   const cardBase = "relative flex flex-col items-center justify-center gap-1 p-2.5 rounded-2xl cursor-pointer transition-all duration-300 border-2 shrink-0 w-fit min-w-[64px] h-[96px]";
 
   return (
-    <div className="sticky top-0 z-40 overflow-visible">
+    <div className="absolute top-0 left-0 right-0 z-40 overflow-visible">
       {/* Shared background layer for both rows */}
-      <div className="absolute inset-0 bg-white/80 backdrop-blur-xl border-b border-slate-200/50" />
+      <div className={`absolute inset-0 backdrop-blur-xl border-b transition-colors duration-500 ${
+        isScanning 
+          ? 'bg-black/20 border-white/10' 
+          : (hasItems ? 'bg-white/80 border-slate-200/50' : 'bg-white/40 border-slate-200/50')
+      }`} />
       
       <div className="relative max-w-2xl mx-auto overflow-visible z-10">
         <div className="flex justify-between items-center p-4">
@@ -32,39 +33,23 @@ export default function Header({
             <div className="w-10 h-10 shadow-lg shadow-indigo-100 overflow-hidden" style={{ borderRadius: '22.5%' }}>
                <img src="/icon.png" alt="Splitzy Logo" className="w-full h-full object-cover" />
             </div>
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Splitzy</h1>
+            <h1 className={`text-2xl font-black tracking-tight ${isScanning ? 'text-white' : 'text-slate-900'}`}>Splitzy</h1>
           </div>
           
-          {(hasItems || isScanning) && (
+          {hasItems && !isScanning && (
             <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2 duration-300">
               <button 
-                onClick={() => setViewMode(viewMode === VIEW_MODES.RECEIPT ? VIEW_MODES.PEOPLE : VIEW_MODES.RECEIPT)}
-                className="flex items-center bg-slate-100 p-1 rounded-2xl mr-1 cursor-pointer active:scale-95 transition-all"
-              >
-                <div 
-                  className={`p-2.5 rounded-xl transition-all ${viewMode === VIEW_MODES.RECEIPT ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}
-                >
-                  <FileText className="w-5 h-5" />
-                </div>
-                <div 
-                  className={`p-2.5 rounded-xl transition-all ${viewMode === VIEW_MODES.PEOPLE ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}
-                >
-                  <Users className="w-5 h-5" />
-                </div>
-              </button>
-              <button 
                 onClick={onUploadClick} 
-                disabled={isScanning} 
-                className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-200 active:scale-95 transition-all disabled:opacity-50"
+                className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-200 active:scale-95 transition-all"
               >
-                {isScanning ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
+                <Plus className="w-5 h-5" />
               </button>
             </div>
           )}
         </div>
 
-        {/* People List Row - Only in Receipt mode */}
-        {viewMode === VIEW_MODES.RECEIPT && (hasItems || isScanning) && (
+        {/* People List Row */}
+        {(hasItems || isScanning) && (
           <div className="px-4 pb-4 overflow-x-auto scrollbar-hide -mx-4 pt-[10px]">
             <div className="flex gap-2.5 items-center px-4">
               {children}
@@ -104,7 +89,11 @@ export default function Header({
 
               <button 
                 onClick={startAdding} 
-                className="w-[96px] h-[96px] flex items-center justify-center rounded-2xl bg-white border-2 border-dashed border-slate-200 text-slate-400 hover:border-slate-300 transition-all shrink-0 active:scale-90"
+                className={`w-[96px] h-[96px] flex items-center justify-center rounded-2xl border-2 border-dashed transition-all shrink-0 active:scale-90 ${
+                  isScanning 
+                    ? 'bg-white/10 border-white/20 text-white' 
+                    : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300'
+                }`}
               >
                 <Plus size={32} strokeWidth={3} />
               </button>
@@ -112,8 +101,8 @@ export default function Header({
               {/* Add People Hint */}
               {peopleCount === 0 && !isAddingPerson && (
                 <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-4 duration-700 shrink-0 animate-horizontal-bounce">
-                  <ArrowLeft className="w-4 h-4 text-indigo-500" />
-                  <p className="text-[11px] font-black uppercase tracking-[0.2em] text-indigo-500 italic whitespace-nowrap">
+                  <ArrowLeft className={`w-4 h-4 ${isScanning ? 'text-white' : 'text-indigo-500'}`} />
+                  <p className={`text-[11px] font-black uppercase tracking-[0.2em] italic whitespace-nowrap ${isScanning ? 'text-white' : 'text-indigo-500'}`}>
                     Add People
                   </p>
                 </div>

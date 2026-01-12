@@ -10,8 +10,3 @@ export const PRESETS = [
   { emoji: '🐷', color: '#FFEBF6', border: '#CCBCC5' },
   { emoji: '🐱', color: '#FFF7A3', border: '#CCC582' },
 ];
-
-export const VIEW_MODES = {
-  RECEIPT: 'receipt',
-  PEOPLE: 'people',
-};

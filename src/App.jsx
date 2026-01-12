@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Loader2, Plus, PieChart } from 'lucide-react';
+import { Loader2, Plus, PieChart, Image } from 'lucide-react';
 
 // Services & Constants
 import { callOpenAI as callAI } from './api/openai';
-import { PRESETS, VIEW_MODES } from './constants';
+import { PRESETS } from './constants';
 
 // Hooks
 import { useLongPress } from './hooks/useLongPress';
@@ -14,15 +14,15 @@ import Header from './components/Header';
 import ReceiptItem from './components/ReceiptItem';
 import PersonCard from './components/PersonCard';
 import PersonSummary from './components/PersonSummary';
-import BottomBar from './components/BottomBar';
 
 export default function App() {
   // --- UI State ---
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState(null);
-  const [viewMode, setViewMode] = useState(VIEW_MODES.RECEIPT);
   const [selectedItemId, setSelectedItemId] = useState(null);
   const [menuId, setMenuId] = useState(null);
+  const [stream, setStream] = useState(null);
+  const [capturedImage, setCapturedImage] = useState(null);
 
   // --- Data State ---
   const [items, setItems] = useState([]);
@@ -40,6 +40,7 @@ export default function App() {
   // --- Refs ---
   const uploadInputRef = useRef(null);
   const personInputRef = useRef(null);
+  const videoRef = useRef(null);
 
   // --- Logic Hook ---
   const {
@@ -47,6 +48,39 @@ export default function App() {
     unclaimedTotal,
     personTotals
   } = useSplitLogic(items, people, assignments, receiptTotal);
+
+  // --- Camera Effect ---
+  useEffect(() => {
+    let currentStream = null;
+
+    async function startCamera() {
+      if (items.length === 0 && !isScanning && !error) {
+        try {
+          currentStream = await navigator.mediaDevices.getUserMedia({
+            video: { 
+              facingMode: 'environment',
+              aspectRatio: { ideal: 9/16 }
+            }
+          });
+          setStream(currentStream);
+          if (videoRef.current) {
+            videoRef.current.srcObject = currentStream;
+          }
+        } catch (err) {
+          console.error("Camera error:", err);
+          setError("Please enable camera access to scan receipts.");
+        }
+      }
+    }
+
+    startCamera();
+
+    return () => {
+      if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [items.length, isScanning, error]);
 
   // --- Auto-focus effect ---
   useEffect(() => {
@@ -78,6 +112,27 @@ export default function App() {
       setError(err.message || "AI failed to read receipt.");
     } finally {
       setIsScanning(false);
+    }
+  };
+
+  const capture = () => {
+    if (!videoRef.current) return;
+    
+    const canvas = document.createElement('canvas');
+    canvas.width = videoRef.current.videoWidth;
+    canvas.height = videoRef.current.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(videoRef.current, 0, 0);
+    
+    const base64 = canvas.toDataURL('image/jpeg', 0.85);
+    setCapturedImage(base64);
+    const base64Data = base64.split(',')[1];
+    processImage(base64Data, 'image/jpeg');
+    
+    // Stop stream after capture
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
     }
   };
 
@@ -145,6 +200,7 @@ export default function App() {
         reader.readAsDataURL(fileToProcess);
       });
 
+      setCapturedImage(base64);
       const base64Data = base64.split(',')[1];
       const mimeType = isHeic ? 'image/jpeg' : base64.split(',')[0].split(':')[1].split(';')[0];
       
@@ -224,13 +280,39 @@ export default function App() {
 
   return (
     <div 
-      className="min-h-screen bg-slate-50 text-slate-900 font-sans select-none"
-      style={{ paddingBottom: viewMode === VIEW_MODES.PEOPLE ? '160px' : '40px' }}
+      className="flex flex-col h-screen bg-slate-50 text-slate-900 font-sans select-none"
     >
+      <style>{`
+        @keyframes echo-ring {
+          0% {
+            transform: scale(0.5);
+            opacity: 1;
+          }
+          100% {
+            transform: scale(2.5);
+            opacity: 0;
+          }
+        }
+        
+        @keyframes pulse-text {
+          0%, 100% { opacity: 0.4; }
+          50% { opacity: 1; }
+        }
+
+        @keyframes subtle-float {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-5px); }
+        }
+      `}</style>
       <Header 
-        viewMode={viewMode}
-        setViewMode={setViewMode}
-        onUploadClick={() => uploadInputRef.current?.click()}
+        onUploadClick={() => {
+          setItems([]);
+          setReceiptTotal(0);
+          setAssignments({});
+          setSelectedItemId(null);
+          setError(null);
+          setCapturedImage(null);
+        }}
         isScanning={isScanning}
         hasItems={items.length > 0}
         isAddingPerson={isAddingPerson}
@@ -282,9 +364,14 @@ export default function App() {
         onChange={handleFileChange} 
       />
 
-      <main className="p-4 max-w-2xl mx-auto">
+      <main 
+        className={`flex-1 overflow-y-auto ${items.length > 0 ? 'p-4 pt-32 max-w-2xl mx-auto w-full' : ''}`}
+        style={{ 
+          paddingBottom: (items.length > 0) ? '40px' : '0' 
+        }}
+      >
         {error && (
-          <div className="mb-6 p-4 bg-rose-50 border border-rose-100 rounded-2xl text-rose-600 text-sm font-bold flex items-center justify-between">
+          <div className="mx-4 mb-6 p-4 bg-rose-50 border border-rose-100 rounded-2xl text-rose-600 text-sm font-bold flex items-center justify-between relative z-50 mt-24">
             {error}
             <button onClick={() => setError(null)} className="p-1 hover:bg-rose-100 rounded-lg">
               <Plus className="w-4 h-4 rotate-45" />
@@ -293,27 +380,87 @@ export default function App() {
         )}
 
         {items.length === 0 && !isScanning && (
-          <div className="py-24 text-center">
-            <button 
-              onClick={() => uploadInputRef.current?.click()}
-              className="group inline-flex flex-col items-center transition-all active:scale-95"
-            >
-              <div className="inline-flex items-center justify-center w-24 h-24 bg-indigo-600 text-white rounded-[2rem] mb-6 shadow-xl shadow-indigo-100 group-hover:scale-110 transition-transform">
-                <Plus className="w-10 h-10" strokeWidth={3} />
-              </div>
-              <h2 className="text-2xl font-black text-slate-800 tracking-tight">Add a receipt to start</h2>
-            </button>
+          <div className="relative w-full h-full bg-slate-200 overflow-hidden">
+            <video 
+              ref={videoRef}
+              autoPlay 
+              playsInline 
+              muted
+              className="w-full h-full object-cover"
+            />
+            
+            {/* Capture Button Overlay */}
+            <div className="absolute bottom-12 left-0 right-0 flex items-center justify-center px-8">
+              <button 
+                onClick={() => uploadInputRef.current?.click()}
+                className="absolute left-8 w-14 h-14 rounded-2xl bg-black/20 backdrop-blur-md border border-white/20 flex items-center justify-center text-white active:scale-90 transition-all shadow-lg"
+              >
+                <Image className="w-6 h-6" />
+              </button>
+
+              <button 
+                onClick={capture}
+                className="w-24 h-24 rounded-full border-4 border-white flex items-center justify-center bg-white/20 backdrop-blur-md active:scale-90 transition-all shadow-xl"
+              >
+                <div className="w-18 h-18 rounded-full bg-white shadow-inner" />
+              </button>
+            </div>
+
+            {/* Camera Status Label */}
+            <div className="absolute top-8 left-0 right-0 flex justify-center pointer-events-none">
+              <span className="bg-black/40 backdrop-blur-md text-white text-[10px] font-black uppercase tracking-[0.2em] px-4 py-2 rounded-full border border-white/20">
+                Ready to Scan
+              </span>
+            </div>
           </div>
         )}
 
         {isScanning && (
-          <div className="py-24 text-center animate-pulse">
-            <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mx-auto mb-4" />
-            <p className="font-black text-slate-800 uppercase tracking-widest text-[10px]">Processing receipt...</p>
+          <div className="relative w-full h-full bg-slate-900 overflow-hidden">
+            {capturedImage && (
+              <img src={capturedImage} className="w-full h-full object-cover opacity-40" alt="Scanning" />
+            )}
+            
+            {/* Animation Overlay */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50">
+              <div className="relative flex flex-col items-center gap-8 scale-75 md:scale-100">
+                {/* Isolated Echo Loader */}
+                <div className="relative w-32 h-32 flex items-center justify-center" style={{ animation: 'subtle-float 4s ease-in-out infinite' }}>
+                  {/* Core Focal Point */}
+                  <div className="w-4 h-4 bg-emerald-500 rounded-full shadow-[0_0_20px_rgba(16,185,129,0.8)] z-10"></div>
+                  
+                  {/* Concentric Rings */}
+                  {[0, 1, 2].map((i) => (
+                    <div 
+                      key={i} 
+                      className="absolute w-full h-full border-2 border-emerald-500/30 rounded-full" 
+                      style={{ 
+                        animation: 'echo-ring 2.5s cubic-bezier(0, 0, 0.2, 1) infinite', 
+                        animationDelay: `${i * 0.8}s` 
+                      }} 
+                    />
+                  ))}
+                  
+                  {/* Additional Glow layer */}
+                  <div className="absolute inset-0 bg-emerald-500/5 rounded-full blur-xl"></div>
+                </div>
+
+                {/* Status Text */}
+                <div className="flex flex-col items-center gap-2">
+                  <span 
+                    className="text-emerald-400 font-mono text-sm tracking-[0.3em] uppercase drop-shadow-lg"
+                    style={{ animation: 'pulse-text 2s ease-in-out infinite' }}
+                  >
+                    Scanning...
+                  </span>
+                  <div className="h-px w-16 bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent"></div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
-        {viewMode === VIEW_MODES.RECEIPT && items.length > 0 && (
+        {items.length > 0 && (
           <div className="space-y-3">
             {items.map(item => (
               <ReceiptItem 
@@ -345,40 +492,38 @@ export default function App() {
                 </div>
               </div>
             </div>
-          </div>
-        )}
 
-        {viewMode === VIEW_MODES.PEOPLE && items.length > 0 && (
-          <div className="space-y-8 animate-in fade-in duration-300">
-            {people.length === 0 ? (
-              <div className="text-center py-20 text-slate-400 text-sm font-medium italic">
-                Add your friends below to see their breakdowns.
-              </div>
-            ) : (
-              people.map(person => (
-                <PersonSummary 
-                  key={person.id}
-                  person={person}
-                  items={items}
-                  assignments={assignments}
-                  currency={currency}
-                  personTotal={personTotals[person.id].total}
-                  personExtras={personTotals[person.id].extras}
-                />
-              ))
-            )}
+            {/* People Breakdown Section moved from People page */}
+            <div className="pt-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              {people.length > 0 ? (
+                <>
+                  <div className="flex items-center gap-2 px-1">
+                    <div className="h-px flex-1 bg-slate-200" />
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Breakdown</span>
+                    <div className="h-px flex-1 bg-slate-200" />
+                  </div>
+                  
+                  {people.map(person => (
+                    <PersonSummary 
+                      key={person.id}
+                      person={person}
+                      items={items}
+                      assignments={assignments}
+                      currency={currency}
+                      personTotal={personTotals[person.id].total}
+                      personExtras={personTotals[person.id].extras}
+                    />
+                  ))}
+                </>
+              ) : (
+                <div className="text-center py-12 text-slate-400 text-sm font-medium italic">
+                  Add your friends above to see their breakdowns.
+                </div>
+              )}
+            </div>
           </div>
         )}
       </main>
-
-      {(items.length > 0 || isScanning) && (
-        <BottomBar
-          viewMode={viewMode}
-          setViewMode={setViewMode}
-          unassignedItems={unassignedItems}
-          currency={currency}
-        />
-      )}
     </div>
   );
 }
