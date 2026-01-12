@@ -1,6 +1,6 @@
 import React from 'react';
-import { FileText, Users, Loader2, RefreshCcw, ArrowLeft, Plus } from 'lucide-react';
-import { VIEW_MODES } from '../constants';
+import { FileText, Users, RefreshCcw, ArrowLeft, Plus } from 'lucide-react';
+import { VIEW_MODES, getThemeClasses } from '../constants';
 
 export default function Header({ 
   viewMode, 
@@ -8,7 +8,7 @@ export default function Header({
   onUploadClick, 
   isScanning, 
   hasItems,
-  children, // This will now be the people list
+  children, 
   isAddingPerson,
   startAdding,
   addPreview,
@@ -17,41 +17,40 @@ export default function Header({
   onFinalizePerson,
   personInputRef,
   currency,
-  peopleCount
+  people
 }) {
-  const cardBase = "relative flex flex-col items-center justify-center gap-1 p-2.5 rounded-2xl cursor-pointer transition-all duration-300 border-2 shrink-0 w-fit min-w-[64px] h-[96px]";
+  const themeClasses = addPreview ? getThemeClasses(addPreview.theme) : null;
 
   return (
     <div className="absolute top-0 left-0 right-0 z-40 overflow-visible">
-      {/* Shared background layer for both rows */}
       <div className={`absolute inset-0 backdrop-blur-xl border-b transition-colors duration-500 ${
         isScanning 
-          ? 'bg-black/20 border-white/10' 
-          : (hasItems ? 'bg-white/80 border-slate-200/50' : 'bg-white/40 border-slate-200/50')
+          ? 'bg-black/20 dark:bg-black/40 border-white/10' 
+          : (hasItems ? 'bg-white/80 dark:bg-slate-950/80 border-slate-200/50 dark:border-slate-800/50' : 'bg-white/40 dark:bg-slate-950/40 border-slate-200/50 dark:border-slate-800/50')
       }`} />
       
       <div className="relative max-w-2xl mx-auto overflow-visible z-10">
         <div className="flex justify-between items-center p-4">
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 shadow-lg shadow-indigo-100 overflow-hidden" style={{ borderRadius: '22.5%' }}>
+            <div className="w-10 h-10 overflow-hidden" style={{ borderRadius: '22.5%' }}>
                <img src="/icon.png" alt="Splitzy Logo" className="w-full h-full object-cover" />
             </div>
-            <h1 className={`text-2xl font-black tracking-tight ${isScanning ? 'text-white' : 'text-slate-900'}`}>Splitzy</h1>
+            <h1 className={`text-2xl font-black tracking-tight ${isScanning || !hasItems ? 'text-white' : 'text-slate-900 dark:text-white'}`}>Splitzy</h1>
           </div>
           
-          {(hasItems || isScanning) && (
+          {hasItems && (
             <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2 duration-300">
               <button 
                 onClick={() => setViewMode(viewMode === VIEW_MODES.RECEIPT ? VIEW_MODES.PEOPLE : VIEW_MODES.RECEIPT)}
-                className="flex items-center bg-slate-100 p-1 rounded-2xl mr-1 cursor-pointer active:scale-95 transition-all"
+                className="flex items-center bg-slate-100 dark:bg-slate-900 p-1 rounded-2xl mr-1 cursor-pointer active:scale-95 transition-all"
               >
                 <div 
-                  className={`p-2.5 rounded-xl transition-all ${viewMode === VIEW_MODES.RECEIPT ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}
+                  className={`p-2.5 rounded-xl transition-all ${viewMode === VIEW_MODES.RECEIPT ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-400'}`}
                 >
                   <FileText className="w-5 h-5" />
                 </div>
                 <div 
-                  className={`p-2.5 rounded-xl transition-all ${viewMode === VIEW_MODES.PEOPLE ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}
+                  className={`p-2.5 rounded-xl transition-all ${viewMode === VIEW_MODES.PEOPLE ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-400'}`}
                 >
                   <Users className="w-5 h-5" />
                 </div>
@@ -59,70 +58,37 @@ export default function Header({
 
               <button 
                 onClick={onUploadClick} 
-                disabled={isScanning} 
-                className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-200 active:scale-95 transition-all disabled:opacity-50"
+                className="p-3 bg-indigo-600 dark:bg-indigo-500 text-white rounded-2xl shadow-lg shadow-indigo-200 dark:shadow-none active:scale-95 transition-all"
               >
-                {isScanning ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCcw className="w-5 h-5" />}
+                <RefreshCcw className="w-5 h-5" />
               </button>
             </div>
           )}
         </div>
 
-        {/* People List Row */}
+        {/* People List Grid */}
         {(hasItems || isScanning) && (
-          <div className="px-4 pb-4 overflow-x-auto scrollbar-hide -mx-4 pt-[10px]">
-            <div className="flex gap-2.5 items-center px-4">
+          <div className="px-4 pb-4 pt-[10px]">
+            <div className="flex flex-wrap gap-2.5 items-center">
               {children}
-              
-              {isAddingPerson && (
-                <form 
-                  onSubmit={(e) => { e.preventDefault(); onFinalizePerson(); }} 
-                  className={`${cardBase} border-4 border-slate-300 animate-grow-width scale-105 z-20`}
-                  style={{ backgroundColor: addPreview?.color }}
-                >
-                  <div className="animate-contents-in flex flex-col items-center justify-center gap-1">
-                    <div className="text-3xl leading-none py-1">
-                      {addPreview?.emoji}
-                    </div>
-                    <div className="min-w-0 flex flex-col items-center px-2">
-                      <div className="grid items-center">
-                        <span className="col-start-1 row-start-1 invisible font-black text-xs leading-tight whitespace-pre text-center text-slate-900 px-1">
-                          {pendingName}
-                        </span>
-                        <input 
-                          ref={personInputRef} 
-                          type="text" 
-                          value={pendingName} 
-                          onChange={(e) => setPendingName(e.target.value)} 
-                          onBlur={onFinalizePerson} 
-                          className="col-start-1 row-start-1 w-0 min-w-full bg-transparent border-none p-0 text-xs font-black placeholder:text-slate-900/40 focus:ring-0 outline-none leading-tight text-center text-slate-900" 
-                        />
-                      </div>
-                      <p className="text-[9px] text-slate-900/60 font-black leading-none mt-1">
-                        {currency}0.00
-                      </p>
-                    </div>
-                  </div>
-                </form>
-              )}
 
               <button 
                 onClick={startAdding} 
-                className={`w-[96px] h-[96px] flex items-center justify-center rounded-2xl border-2 border-dashed transition-all shrink-0 active:scale-90 ${
+                className={`w-[72px] h-[72px] flex items-center justify-center rounded-2xl border-2 border-dashed transition-all shrink-0 active:scale-90 ${
                   isScanning 
                     ? 'bg-white/10 border-white/20 text-white' 
-                    : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300'
+                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-400 hover:border-slate-300 dark:hover:border-slate-700'
                 }`}
               >
                 <Plus size={32} strokeWidth={3} />
               </button>
 
               {/* Add People Hint */}
-              {peopleCount === 0 && !isAddingPerson && (
-                <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-4 duration-700 shrink-0 animate-horizontal-bounce">
+              {people.length === 0 && !isAddingPerson && (
+                <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-4 duration-700 shrink-0 animate-horizontal-bounce ml-2">
                   <ArrowLeft className={`w-4 h-4 ${isScanning ? 'text-white' : 'text-indigo-500'}`} />
                   <p className={`text-[11px] font-black uppercase tracking-[0.2em] italic whitespace-nowrap ${isScanning ? 'text-white' : 'text-indigo-500'}`}>
-                    Add People
+                    Add Friends
                   </p>
                 </div>
               )}

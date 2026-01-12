@@ -20,8 +20,8 @@
 }
 
 @keyframes grow-width {
-  0% { max-width: 0; opacity: 0; margin-left: -5px; margin-right: -5px; transform: scaleX(0); }
-  100% { max-width: 300px; opacity: 1; margin-left: 0; margin-right: 0; transform: scaleX(1); }
+  0% { opacity: 0; transform: scaleX(0.5); }
+  100% { opacity: 1; transform: scaleX(1); }
 }
 
 @keyframes fade-in-delayed {

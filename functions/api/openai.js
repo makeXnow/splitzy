@@ -44,17 +44,23 @@ export async function onRequest(context) {
               items: {
                 type: "object",
                 properties: {
-                  name: { type: "string" },
+                  name: { 
+                    type: "string",
+                    description: "The name of the item. FORMAT: [EMOJI(S)] [QUANTITYx] [NAME]. 1. MUST start with 1-2 relevant emojis and a space. 2. If quantity > 1, add quantity then 'x' and a space. DO NOT add '1x'. 3. Then the item name."
+                  },
                   price: { type: "number" }
                 },
                 required: ["name", "price"],
                 additionalProperties: false
               }
             },
+            tax: { type: "number" },
+            tip: { type: "number" },
+            fees: { type: "number" },
             total: { type: "number" },
             currencySymbol: { type: "string" }
           },
-          required: ["items", "total", "currencySymbol"],
+          required: ["items", "tax", "tip", "fees", "total", "currencySymbol"],
           additionalProperties: false
         }
       }

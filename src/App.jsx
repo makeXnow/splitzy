@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Loader2, Plus, PieChart, Image } from 'lucide-react';
+import { Loader2, Plus, PieChart, Image, Copy, Check } from 'lucide-react';
 
 // Services & Constants
 import { callOpenAI as callAI } from './api/openai';
@@ -25,6 +25,7 @@ export default function App() {
   const [menuId, setMenuId] = useState(null);
   const [stream, setStream] = useState(null);
   const [capturedImage, setCapturedImage] = useState(null);
+  const [copiedError, setCopiedError] = useState(false);
 
   // --- Data State ---
   const [items, setItems] = useState([]);
@@ -51,7 +52,15 @@ export default function App() {
     unclaimedTotal,
     personTotals,
     extrasTotal
-  } = useSplitLogic(items, people, assignments, receiptTotal, extras);
+  } = useSplitLogic(
+    items, 
+    isAddingPerson && addPreview 
+      ? [...people, { id: 'pending-person', name: pendingName || '...', ...addPreview }] 
+      : people, 
+    assignments, 
+    receiptTotal, 
+    extras
+  );
 
   // --- Camera Effect ---
   useEffect(() => {
@@ -100,13 +109,33 @@ export default function App() {
     setSelectedItemId(null);
 
     try {
-      const prompt = "Analyze this receipt image. Extract all line items with their prices, the total amount, and the currency symbol. Also specifically look for and extract Tax, Tip, and Fees if they are listed. Return ONLY a JSON object with this exact structure: {\"items\": [{\"name\": \"item name\", \"price\": 0.00}], \"tax\": 0.00, \"tip\": 0.00, \"fees\": 0.00, \"total\": 0.00, \"currencySymbol\": \"$\"}. IMPORTANT: Do not include the Subtotal, Total, Tax, Tip, or Fees as part of the 'items' list; only include actual food/drink/service line items.";
+      const prompt = `Analyze this receipt image. 
+
+CRITICAL naming rules for the 'name' field:
+1. MUST start with 1-2 relevant emojis followed by a space.
+2. If the quantity is GREATER THAN 1, follow the emoji with the quantity and 'x' (e.g., '🍚 2x '). 
+3. NEVER include '1x' if the quantity is 1.
+
+Correct Examples:
+🍚 2x Steamed Rice
+💧 3x Bottle Water
+🍗 Chicken
+🥘 Chicken Pad Thai
+🧀🥖 Bread and Cheese
+
+Extract all line items with their prices, the total amount, and the currency symbol. Also extract Tax, Tip, and Fees if they are listed. 
+Return ONLY a JSON object with this exact structure: {"items": [{"name": "item name", "price": 0.00}], "tax": 0.00, "tip": 0.00, "fees": 0.00, "total": 0.00, "currencySymbol": "$"}.
+
+IMPORTANT: Do not include summary items like Subtotal, Total, Tax, Tip, or Fees in the 'items' list.`;
       const result = await callAI(prompt, base64, mimeType);
       
       if (result.items) {
         // Double check filtering of summary items
         const filteredItems = result.items.filter(it => {
-          const name = it.name.toLowerCase();
+          const name = (it.name || '').toLowerCase();
+          // Filter out items that are completely blank or just noise
+          if (!name && !it.price) return false;
+          
           const isTaxTipFee = name.includes('tax') || name.includes('tip') || name.includes('fee');
           const isSummary = name.includes('total') || name.includes('subtotal') || name.includes('amount due');
           return !isTaxTipFee && !isSummary;
@@ -195,7 +224,7 @@ export default function App() {
 
     try {
       let fileToProcess = file;
-      const fileName = file.name.toLowerCase();
+      const fileName = (file.name || '').toLowerCase();
       const isHeic = fileName.endsWith('.heic') || fileName.endsWith('.heif') || 
                      file.type === 'image/heic' || file.type === 'image/heif';
 
@@ -229,8 +258,8 @@ export default function App() {
   };
 
   const startAdding = () => {
-    const usedEmoji = people.map(p => p.emoji);
-    const pool = PRESETS.filter(p => !usedEmoji.includes(p.emoji));
+    const usedThemes = people.map(p => p.theme);
+    const pool = PRESETS.filter(p => !usedThemes.includes(p.theme));
     const randomPreset = (pool.length ? pool : PRESETS)[
       Math.floor(Math.random() * (pool.length || PRESETS.length))
     ];
@@ -297,7 +326,7 @@ export default function App() {
 
   return (
     <div 
-      className="flex flex-col h-screen bg-slate-50 text-slate-900 font-sans select-none"
+      className="flex flex-col h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans select-none"
     >
       <style>{`
         @keyframes echo-ring {
@@ -347,7 +376,7 @@ export default function App() {
         onFinalizePerson={handleFinalizePerson}
         personInputRef={personInputRef}
         currency={currency}
-        peopleCount={people.length}
+        people={people}
       >
         {people.map(p => {
           const isSelected = viewMode === VIEW_MODES.PEOPLE && selectedPersonId === p.id;
@@ -387,6 +416,26 @@ export default function App() {
             />
           );
         })}
+        {isAddingPerson && (
+          <PersonCard 
+            key="pending-person"
+            person={{ id: 'pending-person', name: pendingName || '...', ...addPreview }}
+            isAssigned={false}
+            isEditing={true}
+            isMenuOpen={false}
+            total={personTotals['pending-person']?.total || 0}
+            currency={currency}
+            onPress={() => {}}
+            onEdit={() => {}}
+            onDelete={() => {}}
+            onCloseMenu={() => {}}
+            pendingName={pendingName}
+            setPendingName={setPendingName}
+            onFinalize={handleFinalizePerson}
+            inputRef={personInputRef}
+            longPressProps={{}}
+          />
+        )}
       </Header>
       
       <input 
@@ -404,16 +453,29 @@ export default function App() {
         }}
       >
         {error && (
-          <div className="mx-4 mb-6 p-4 bg-rose-50 border border-rose-100 rounded-2xl text-rose-600 text-sm font-bold flex items-center justify-between relative z-50 mt-24">
-            {error}
-            <button onClick={() => setError(null)} className="p-1 hover:bg-rose-100 rounded-lg">
-              <Plus className="w-4 h-4 rotate-45" />
-            </button>
+          <div className="mx-4 mb-6 p-4 bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-800 rounded-2xl text-rose-600 dark:text-rose-400 text-sm font-bold flex items-start gap-3 relative z-50 mt-24">
+            <span className="flex-1 pt-1.5">{error}</span>
+            <div className="flex items-center gap-1 shrink-0">
+              <button 
+                onClick={() => {
+                  navigator.clipboard.writeText(error);
+                  setCopiedError(true);
+                  setTimeout(() => setCopiedError(false), 2000);
+                }} 
+                className="p-2 hover:bg-rose-100 dark:hover:bg-rose-800/40 rounded-lg transition-colors"
+                title="Copy error"
+              >
+                {copiedError ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+              </button>
+              <button onClick={() => setError(null)} className="p-2 hover:bg-rose-100 dark:hover:bg-rose-800/40 rounded-lg transition-colors">
+                <Plus className="w-4 h-4 rotate-45" />
+              </button>
+            </div>
           </div>
         )}
 
         {items.length === 0 && !isScanning && (
-          <div className="relative w-full h-full bg-slate-200 overflow-hidden">
+          <div className="relative w-full h-full bg-slate-200 dark:bg-slate-900 overflow-hidden">
             <video 
               ref={videoRef}
               autoPlay 
@@ -426,7 +488,7 @@ export default function App() {
             <div className="absolute bottom-12 left-0 right-0 flex items-center justify-center px-8">
               <button 
                 onClick={() => uploadInputRef.current?.click()}
-                className="absolute left-8 w-14 h-14 rounded-2xl bg-black/20 backdrop-blur-md border border-white/20 flex items-center justify-center text-white active:scale-90 transition-all shadow-lg"
+                className="absolute left-8 w-14 h-14 rounded-2xl bg-black/20 dark:bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white active:scale-90 transition-all shadow-lg"
               >
                 <Image className="w-6 h-6" />
               </button>
@@ -524,48 +586,50 @@ export default function App() {
               return (
                 <div 
                   key={key}
-                  className="bg-slate-200/50 p-5 rounded-[1.75rem] border-2 border-transparent shadow-sm flex justify-between items-center text-slate-500 cursor-default"
+                  className="bg-slate-200/50 dark:bg-slate-900/50 p-5 rounded-[1.75rem] border-2 border-transparent shadow-sm flex justify-between items-center text-slate-500 dark:text-slate-400 cursor-default"
                 >
                   <h3 className="font-bold pr-4 truncate text-lg capitalize">
                     {key}
                   </h3>
-                  <span className="font-black text-slate-700 text-lg whitespace-nowrap">
+                  <span className="font-black text-slate-700 dark:text-slate-300 text-lg whitespace-nowrap">
                     {currency}{value.toFixed(2)}
                   </span>
                 </div>
               );
             })}
 
-            <div className="bg-slate-900 p-5 rounded-[1.75rem] border-2 border-slate-800 shadow-xl text-white cursor-default">
+            <div className="bg-slate-200 dark:bg-slate-900 p-5 rounded-[1.75rem] border-2 border-slate-300 dark:border-slate-800 shadow-sm text-slate-900 dark:text-white cursor-default">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-slate-800 text-white shrink-0">
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-white dark:bg-slate-800 text-slate-900 dark:text-white shrink-0 shadow-sm">
                     <PieChart size={24} />
                   </div>
                   <div>
-                    <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest leading-none mb-1">Session Summary</p>
                     <h3 className="text-lg font-black leading-tight">Final Balance</h3>
                   </div>
                 </div>
                 <div className="text-right">
                   <p className="text-xl font-black leading-none">{currency}{receiptTotal.toFixed(2)}</p>
-                  <p className={`text-[11px] font-black mt-1 ${unclaimedTotal > 0 ? 'text-indigo-400' : 'text-emerald-400'}`}>
+                  <p className={`text-[11px] font-black mt-1 ${unclaimedTotal > 0 ? 'text-indigo-600 dark:text-indigo-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                     {unclaimedTotal > 0 ? `${currency}${unclaimedTotal.toFixed(2)} unassigned` : 'Perfectly Split! 🎉'}
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* People Breakdown Section moved from People page */}
-            <div className="pt-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              {people.length > 0 ? (
-                <>
-                  <div className="flex items-center gap-2 px-1">
-                    <div className="h-px flex-1 bg-slate-200" />
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Breakdown</span>
-                    <div className="h-px flex-1 bg-slate-200" />
-                  </div>
-                  
+            <div className="py-4 px-2">
+              <div className="h-px w-1/2 mx-auto bg-slate-200 dark:bg-slate-800" />
+            </div>
+
+            {/* Combined Breakdown Card */}
+            {people.length > 0 && (
+              <div className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border-2 border-slate-100 dark:border-slate-800 shadow-sm space-y-8">
+                <div className="flex flex-col items-center gap-1">
+                  <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">Personal Breakdowns</h2>
+                  <div className="h-1 w-12 bg-indigo-500 rounded-full" />
+                </div>
+                
+                <div className="space-y-12">
                   {people.map(person => (
                     <PersonSummary 
                       key={person.id}
@@ -581,13 +645,28 @@ export default function App() {
                       peopleCount={people.length}
                     />
                   ))}
-                </>
-              ) : (
-                <div className="text-center py-12 text-slate-400 text-sm font-medium italic">
-                  Add your friends above to see their breakdowns.
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+
+            {/* Original Uploaded Image Card */}
+            {capturedImage && (
+              <div className="bg-white dark:bg-slate-900 p-2 rounded-[2rem] border-2 border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
+                <div className="relative aspect-[3/4] w-full rounded-[1.5rem] overflow-hidden bg-slate-100 dark:bg-slate-800">
+                  <img 
+                    src={capturedImage} 
+                    alt="Original Receipt" 
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
+                  <div className="absolute bottom-4 left-4">
+                    <span className="bg-white/90 dark:bg-black/80 backdrop-blur-sm text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border border-white/20 text-slate-900 dark:text-white">
+                      Original Receipt
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </main>

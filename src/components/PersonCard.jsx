@@ -1,5 +1,6 @@
 import React from 'react';
 import { Pencil, Trash2, X } from 'lucide-react';
+import { getThemeClasses } from '../constants';
 
 export default function PersonCard({ 
   person, 
@@ -18,33 +19,31 @@ export default function PersonCard({
   inputRef,
   longPressProps
 }) {
-  const cardBase = "relative flex flex-col items-center justify-center gap-1 p-2.5 rounded-2xl cursor-pointer transition-all duration-300 border-2 shrink-0 w-fit min-w-[64px] h-[96px]";
+  const themes = getThemeClasses(person.theme);
+  const cardBase = "relative flex flex-col items-center justify-center gap-0.5 p-3 rounded-2xl cursor-pointer transition-all duration-300 border-2 shrink-0 h-[72px] shadow-sm";
 
   if (isEditing) {
     return (
       <form 
         onSubmit={(e) => { e.preventDefault(); onFinalize(); }} 
-        className={`${cardBase} border-4 border-indigo-500 shadow-xl scale-105 z-20`}
-        style={{ backgroundColor: person.color }}
+        className={`${cardBase} ${themes.bg} border-indigo-500 dark:border-indigo-400 shadow-lg z-20 w-fit`}
+        style={{ minWidth: '72px' }}
       >
-        <div className="text-3xl leading-none py-1">
-          {person.emoji}
-        </div>
-        <div className="min-w-0 flex flex-col items-center px-2">
-          <div className="grid items-center">
-            <span className="col-start-1 row-start-1 invisible font-black text-xs leading-tight whitespace-pre text-center text-slate-900 px-1">
+        <div className="min-w-0 flex flex-col items-center w-full px-1">
+          <div className="grid items-center" style={{ minWidth: '24px' }}>
+            <span className={`col-start-1 row-start-1 invisible text-sm font-black whitespace-pre px-1 ${themes.text}`}>
               {pendingName}
             </span>
             <input 
               ref={inputRef} 
               type="text" 
               value={pendingName} 
-              onChange={(e) => setPendingName(e.target.value)} 
+              onChange={(e) => setPendingName(e.target.value.slice(0, 20))} 
               onBlur={onFinalize} 
-              className="col-start-1 row-start-1 w-0 min-w-full bg-transparent border-none p-0 text-xs font-black focus:ring-0 outline-none leading-tight text-center text-slate-900" 
+              className={`col-start-1 row-start-1 w-0 min-w-full bg-transparent border-none p-0 text-sm font-black focus:ring-0 outline-none leading-tight text-center ${themes.text}`} 
             />
           </div>
-          <p className="text-[9px] text-slate-900/60 font-black leading-none mt-1 text-center">
+          <p className={`text-[10px] font-black leading-none mt-1 opacity-60 text-center ${themes.text}`}>
             {currency}{total.toFixed(2)}
           </p>
         </div>
@@ -56,44 +55,37 @@ export default function PersonCard({
     <div 
       {...longPressProps}
       onClick={() => onPress(person.id)}
-      className={`${cardBase} ${
+      className={`${cardBase} ${themes.bg} ${
         isAssigned 
-          ? 'shadow-lg scale-105 z-10 border-4 border-black/40' 
-          : 'shadow-sm border-black/5'
-      } active:scale-95 group`}
-      style={{ 
-        backgroundColor: person.color,
-      }}
+          ? `z-10 ${themes.activeBorder} border-4` 
+          : `${themes.border} hover:scale-[1.02]`
+      } active:scale-95 group w-fit`}
+      style={{ minWidth: '72px' }}
     >
-      
-      <div className="text-3xl leading-none py-1 transition-transform duration-300 relative">
-        {person.emoji}
-      </div>
-      <div className="min-w-0 flex flex-col items-center relative px-2">
-        <p className="font-black text-xs leading-tight text-center text-slate-900 whitespace-nowrap">{person.name}</p>
-        <p className="text-[9px] text-slate-900/60 font-black leading-none mt-1 text-center">
+      <div className="min-w-0 flex flex-col items-center w-full px-1">
+        <p className={`font-black text-sm leading-tight text-center w-fit px-1 ${themes.text}`}>{person.name}</p>
+        <p className={`text-[10px] font-black leading-none mt-1 text-center opacity-60 ${themes.text}`}>
           {currency}{total.toFixed(2)}
         </p>
       </div>
+
       {isMenuOpen && (
-        <div className="absolute inset-0 bg-white/95 rounded-2xl flex flex-col items-center justify-center gap-2 z-20 animate-in fade-in zoom-in duration-200">
-          <div className="flex gap-2">
-            <button 
-              onClick={(e) => { e.stopPropagation(); onEdit(person); }} 
-              className="p-1.5 text-indigo-500 bg-indigo-50 rounded-lg hover:scale-110 transition-transform"
-            >
-              <Pencil size={14} />
-            </button>
-            <button 
-              onClick={(e) => { e.stopPropagation(); onDelete(person.id); }} 
-              className="p-1.5 text-rose-500 bg-rose-50 rounded-lg hover:scale-110 transition-transform"
-            >
-              <Trash2 size={14} />
-            </button>
-          </div>
+        <div className="absolute inset-0 bg-white/95 dark:bg-slate-900/95 rounded-2xl flex items-center justify-center gap-2 z-20 animate-in fade-in zoom-in duration-200">
+          <button 
+            onClick={(e) => { e.stopPropagation(); onEdit(person); }} 
+            className="p-1.5 text-indigo-500 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/40 rounded-lg hover:scale-110 transition-transform"
+          >
+            <Pencil size={14} />
+          </button>
+          <button 
+            onClick={(e) => { e.stopPropagation(); onDelete(person.id); }} 
+            className="p-1.5 text-rose-500 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/40 rounded-lg hover:scale-110 transition-transform"
+          >
+            <Trash2 size={14} />
+          </button>
           <button 
             onClick={(e) => { e.stopPropagation(); onCloseMenu(); }} 
-            className="p-1 text-slate-400 bg-slate-50 rounded-lg"
+            className="p-1 text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-800 rounded-lg"
           >
             <X size={14} />
           </button>
