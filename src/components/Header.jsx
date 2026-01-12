@@ -77,7 +77,7 @@ export default function Header({
               {isAddingPerson && (
                 <form 
                   onSubmit={(e) => { e.preventDefault(); onFinalizePerson(); }} 
-                  className={`${cardBase} border-dashed border-slate-300 animate-grow-width mx-2 scale-110 z-20`}
+                  className={`${cardBase} border-4 border-slate-300 animate-grow-width scale-105 z-20`}
                   style={{ backgroundColor: addPreview?.color }}
                 >
                   <div className="animate-contents-in flex flex-col items-center justify-center gap-1">
@@ -95,7 +95,6 @@ export default function Header({
                           value={pendingName} 
                           onChange={(e) => setPendingName(e.target.value)} 
                           onBlur={onFinalizePerson} 
-                          placeholder="Name" 
                           className="col-start-1 row-start-1 w-0 min-w-full bg-transparent border-none p-0 text-xs font-black placeholder:text-slate-900/40 focus:ring-0 outline-none leading-tight text-center text-slate-900" 
                         />
                       </div>

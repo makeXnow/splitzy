@@ -14,7 +14,6 @@ import Header from './components/Header';
 import ReceiptItem from './components/ReceiptItem';
 import PersonCard from './components/PersonCard';
 import PersonSummary from './components/PersonSummary';
-import BottomBar from './components/BottomBar';
 
 export default function App() {
   // --- UI State ---
@@ -29,6 +28,7 @@ export default function App() {
 
   // --- Data State ---
   const [items, setItems] = useState([]);
+  const [extras, setExtras] = useState({ tax: 0, tip: 0, fees: 0 });
   const [receiptTotal, setReceiptTotal] = useState(0);
   const [currency, setCurrency] = useState('$');
   const [people, setPeople] = useState([]);
@@ -49,8 +49,9 @@ export default function App() {
   const {
     unassignedItems,
     unclaimedTotal,
-    personTotals
-  } = useSplitLogic(items, people, assignments, receiptTotal);
+    personTotals,
+    extrasTotal
+  } = useSplitLogic(items, people, assignments, receiptTotal, extras);
 
   // --- Camera Effect ---
   useEffect(() => {
@@ -99,14 +100,27 @@ export default function App() {
     setSelectedItemId(null);
 
     try {
-      const prompt = "Analyze this receipt image. Extract all line items with their prices, the total amount, and the currency symbol. Return ONLY a JSON object with this exact structure: {\"items\": [{\"name\": \"item name\", \"price\": 0.00}], \"total\": 0.00, \"currencySymbol\": \"$\"}";
+      const prompt = "Analyze this receipt image. Extract all line items with their prices, the total amount, and the currency symbol. Also specifically look for and extract Tax, Tip, and Fees if they are listed. Return ONLY a JSON object with this exact structure: {\"items\": [{\"name\": \"item name\", \"price\": 0.00}], \"tax\": 0.00, \"tip\": 0.00, \"fees\": 0.00, \"total\": 0.00, \"currencySymbol\": \"$\"}. IMPORTANT: Do not include the Subtotal, Total, Tax, Tip, or Fees as part of the 'items' list; only include actual food/drink/service line items.";
       const result = await callAI(prompt, base64, mimeType);
       
       if (result.items) {
-        setItems(result.items.map((it, idx) => ({ 
+        // Double check filtering of summary items
+        const filteredItems = result.items.filter(it => {
+          const name = it.name.toLowerCase();
+          const isTaxTipFee = name.includes('tax') || name.includes('tip') || name.includes('fee');
+          const isSummary = name.includes('total') || name.includes('subtotal') || name.includes('amount due');
+          return !isTaxTipFee && !isSummary;
+        });
+
+        setItems(filteredItems.map((it, idx) => ({ 
           ...it, 
-          id: `item-${Date.now()}-${idx}` 
+          id: `item-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 9)}` 
         })));
+        setExtras({
+          tax: result.tax || 0,
+          tip: result.tip || 0,
+          fees: result.fees || 0
+        });
         setReceiptTotal(result.total || 0);
         setCurrency(result.currencySymbol || '$');
         setAssignments({});
@@ -240,7 +254,7 @@ export default function App() {
         ));
       } else if (addPreview) {
         setPeople([...people, { 
-          id: crypto.randomUUID(), 
+          id: `person-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, 
           name: pendingName.trim(), 
           ...addPreview 
         }]);
@@ -316,6 +330,7 @@ export default function App() {
         }}
         onUploadClick={() => {
           setItems([]);
+          setExtras({ tax: 0, tip: 0, fees: 0 });
           setReceiptTotal(0);
           setAssignments({});
           setSelectedItemId(null);
@@ -345,7 +360,7 @@ export default function App() {
               isAssigned={isSelected || isHighlighted}
               isEditing={editingPersonId === p.id}
               isMenuOpen={menuId === p.id}
-              total={personTotals[p.id].total}
+              total={personTotals[p.id]?.total || 0}
               currency={currency}
               onPress={(id) => {
                 if (menuId) setMenuId(null);
@@ -383,7 +398,7 @@ export default function App() {
       />
 
       <main 
-        className={`flex-1 overflow-y-auto ${items.length > 0 ? 'p-4 pt-32 max-w-2xl mx-auto w-full' : ''}`}
+        className={`flex-1 overflow-y-auto ${items.length > 0 ? 'p-4 pt-52 max-w-2xl mx-auto w-full' : ''}`}
         style={{ 
           paddingBottom: (items.length > 0) ? '40px' : '0' 
         }}
@@ -502,6 +517,25 @@ export default function App() {
               );
             })}
 
+            {/* Extras: Tax, Tip, Fees */}
+            {['tax', 'tip', 'fees'].map(key => {
+              const value = extras[key];
+              if (!value || value <= 0) return null;
+              return (
+                <div 
+                  key={key}
+                  className="bg-slate-200/50 p-5 rounded-[1.75rem] border-2 border-transparent shadow-sm flex justify-between items-center text-slate-500 cursor-default"
+                >
+                  <h3 className="font-bold pr-4 truncate text-lg capitalize">
+                    {key}
+                  </h3>
+                  <span className="font-black text-slate-700 text-lg whitespace-nowrap">
+                    {currency}{value.toFixed(2)}
+                  </span>
+                </div>
+              );
+            })}
+
             <div className="bg-slate-900 p-5 rounded-[1.75rem] border-2 border-slate-800 shadow-xl text-white cursor-default">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -539,8 +573,12 @@ export default function App() {
                       items={items}
                       assignments={assignments}
                       currency={currency}
-                      personTotal={personTotals[person.id].total}
-                      personExtras={personTotals[person.id].extras}
+                      personTotal={personTotals[person.id]?.total || 0}
+                      personExtras={personTotals[person.id]?.extras || 0}
+                      unassignedShare={personTotals[person.id]?.unassignedShare || 0}
+                      breakdown={personTotals[person.id]?.breakdown || {}}
+                      adjustment={personTotals[person.id]?.adjustment || 0}
+                      peopleCount={people.length}
                     />
                   ))}
                 </>
@@ -554,12 +592,6 @@ export default function App() {
         )}
       </main>
 
-      {(items.length > 0 || isScanning) && (
-        <BottomBar
-          unassignedItems={unassignedItems}
-          currency={currency}
-        />
-      )}
     </div>
   );
 }

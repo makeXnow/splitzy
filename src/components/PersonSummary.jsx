@@ -1,5 +1,5 @@
 import React from 'react';
-import { Info } from 'lucide-react';
+import { Banknote, HeartHandshake } from 'lucide-react';
 
 export default function PersonSummary({ 
   person, 
@@ -7,9 +7,14 @@ export default function PersonSummary({
   assignments, 
   currency, 
   personTotal, 
-  personExtras 
+  personExtras,
+  unassignedShare,
+  peopleCount,
+  breakdown,
+  adjustment
 }) {
   const myItems = items.filter(it => assignments[it.id]?.includes(person.id));
+  const unassignedPercentage = Math.round(100 / (peopleCount || 1));
 
   return (
     <div className="space-y-3">
@@ -49,20 +54,62 @@ export default function PersonSummary({
             </div>
           </div>
         ))}
-        <div 
-          style={{ backgroundColor: `${person.color}33` }} 
-          className="p-4 rounded-3xl border border-black/5 flex justify-between items-center"
-        >
-          <div className="flex items-center gap-2">
-            <Info className="w-4 h-4 text-slate-500" />
-            <span className="font-black text-slate-600 text-[10px] uppercase tracking-widest">
-              Tax, Tip & Fees
+        
+        {unassignedShare > 0 && (
+          <div 
+            style={{ backgroundColor: `${person.color}33` }} 
+            className="p-4 rounded-3xl border border-black/5 flex justify-between items-center"
+          >
+            <div className="flex items-center gap-2">
+              <HeartHandshake className="w-4 h-4 text-slate-500" />
+              <span className="font-black text-slate-600 text-[10px] uppercase tracking-widest">
+                {unassignedPercentage}% of Unassigned
+              </span>
+            </div>
+            <span className="font-black text-slate-700 text-sm">
+              {currency}{unassignedShare.toFixed(2)}
             </span>
           </div>
-          <span className="font-black text-slate-700 text-sm">
-            {currency}{personExtras.toFixed(2)}
-          </span>
-        </div>
+        )}
+
+        {/* Individual Extras */}
+        {breakdown && Object.entries(breakdown).map(([key, value]) => {
+          if (value <= 0) return null;
+          return (
+            <div 
+              key={key}
+              style={{ backgroundColor: `${person.color}33` }} 
+              className="p-4 rounded-3xl border border-black/5 flex justify-between items-center"
+            >
+              <div className="flex items-center gap-2">
+                <Banknote className="w-4 h-4 text-slate-500" />
+                <span className="font-black text-slate-600 text-[10px] uppercase tracking-widest">
+                  {key}
+                </span>
+              </div>
+              <span className="font-black text-slate-700 text-sm">
+                {currency}{value.toFixed(2)}
+              </span>
+            </div>
+          );
+        })}
+
+        {adjustment > 0 && (
+          <div 
+            style={{ backgroundColor: `${person.color}33` }} 
+            className="p-4 rounded-3xl border border-black/5 flex justify-between items-center"
+          >
+            <div className="flex items-center gap-2">
+              <Banknote className="w-4 h-4 text-slate-500" />
+              <span className="font-black text-slate-600 text-[10px] uppercase tracking-widest">
+                Other Adjustments
+              </span>
+            </div>
+            <span className="font-black text-slate-700 text-sm">
+              {currency}{adjustment.toFixed(2)}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

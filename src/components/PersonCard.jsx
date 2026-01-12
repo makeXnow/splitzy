@@ -24,7 +24,7 @@ export default function PersonCard({
     return (
       <form 
         onSubmit={(e) => { e.preventDefault(); onFinalize(); }} 
-        className={`${cardBase} border-indigo-500 shadow-xl scale-110 z-20 mx-2`}
+        className={`${cardBase} border-4 border-indigo-500 shadow-xl scale-105 z-20`}
         style={{ backgroundColor: person.color }}
       >
         <div className="text-3xl leading-none py-1">
@@ -58,14 +58,13 @@ export default function PersonCard({
       onClick={() => onPress(person.id)}
       className={`${cardBase} ${
         isAssigned 
-          ? 'shadow-lg scale-110 z-10 border-black/20 mx-3' 
+          ? 'shadow-lg scale-105 z-10 border-4 border-black/40' 
           : 'shadow-sm border-black/5'
       } active:scale-95 group`}
       style={{ 
         backgroundColor: person.color,
       }}
     >
-      <div className={`absolute inset-0 rounded-2xl transition-opacity duration-300 ${isAssigned ? 'opacity-10 bg-black' : 'opacity-0'}`} />
       
       <div className="text-3xl leading-none py-1 transition-transform duration-300 relative">
         {person.emoji}
