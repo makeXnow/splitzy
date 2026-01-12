@@ -1,7 +1,10 @@
 import React from 'react';
-import { Loader2, Plus, ArrowLeft } from 'lucide-react';
+import { FileText, Users, Loader2, RefreshCcw, ArrowLeft, Plus } from 'lucide-react';
+import { VIEW_MODES } from '../constants';
 
 export default function Header({ 
+  viewMode, 
+  setViewMode, 
   onUploadClick, 
   isScanning, 
   hasItems,
@@ -36,13 +39,30 @@ export default function Header({
             <h1 className={`text-2xl font-black tracking-tight ${isScanning ? 'text-white' : 'text-slate-900'}`}>Splitzy</h1>
           </div>
           
-          {hasItems && !isScanning && (
+          {(hasItems || isScanning) && (
             <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2 duration-300">
               <button 
-                onClick={onUploadClick} 
-                className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-200 active:scale-95 transition-all"
+                onClick={() => setViewMode(viewMode === VIEW_MODES.RECEIPT ? VIEW_MODES.PEOPLE : VIEW_MODES.RECEIPT)}
+                className="flex items-center bg-slate-100 p-1 rounded-2xl mr-1 cursor-pointer active:scale-95 transition-all"
               >
-                <Plus className="w-5 h-5" />
+                <div 
+                  className={`p-2.5 rounded-xl transition-all ${viewMode === VIEW_MODES.RECEIPT ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}
+                >
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div 
+                  className={`p-2.5 rounded-xl transition-all ${viewMode === VIEW_MODES.PEOPLE ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}
+                >
+                  <Users className="w-5 h-5" />
+                </div>
+              </button>
+
+              <button 
+                onClick={onUploadClick} 
+                disabled={isScanning} 
+                className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-200 active:scale-95 transition-all disabled:opacity-50"
+              >
+                {isScanning ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCcw className="w-5 h-5" />}
               </button>
             </div>
           )}

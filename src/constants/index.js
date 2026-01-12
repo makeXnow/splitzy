@@ -1,4 +1,9 @@
-export const MODEL_NAME = "gemini-2.0-flash-exp"; // Updated to a more standard model name if needed, but keeping user's intent
+export const MODEL_NAME = "gemini-2.0-flash-exp";
+
+export const VIEW_MODES = {
+  RECEIPT: 'receipt',
+  PEOPLE: 'people'
+};
 
 export const PRESETS = [
   { emoji: '🐙', color: '#FFA8E4', border: '#CC86B6' },

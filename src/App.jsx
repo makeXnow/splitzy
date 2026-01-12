@@ -3,7 +3,7 @@ import { Loader2, Plus, PieChart, Image } from 'lucide-react';
 
 // Services & Constants
 import { callOpenAI as callAI } from './api/openai';
-import { PRESETS } from './constants';
+import { PRESETS, VIEW_MODES } from './constants';
 
 // Hooks
 import { useLongPress } from './hooks/useLongPress';
@@ -14,12 +14,15 @@ import Header from './components/Header';
 import ReceiptItem from './components/ReceiptItem';
 import PersonCard from './components/PersonCard';
 import PersonSummary from './components/PersonSummary';
+import BottomBar from './components/BottomBar';
 
 export default function App() {
   // --- UI State ---
+  const [viewMode, setViewMode] = useState(VIEW_MODES.RECEIPT);
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState(null);
   const [selectedItemId, setSelectedItemId] = useState(null);
+  const [selectedPersonId, setSelectedPersonId] = useState(null);
   const [menuId, setMenuId] = useState(null);
   const [stream, setStream] = useState(null);
   const [capturedImage, setCapturedImage] = useState(null);
@@ -305,6 +308,12 @@ export default function App() {
         }
       `}</style>
       <Header 
+        viewMode={viewMode}
+        setViewMode={(mode) => {
+          setViewMode(mode);
+          setSelectedItemId(null);
+          setSelectedPersonId(null);
+        }}
         onUploadClick={() => {
           setItems([]);
           setReceiptTotal(0);
@@ -325,35 +334,44 @@ export default function App() {
         currency={currency}
         peopleCount={people.length}
       >
-        {people.map(p => (
-          <PersonCard 
-            key={p.id}
-            person={p}
-            isAssigned={selectedItemId && (assignments[selectedItemId] || []).includes(p.id)}
-            isEditing={editingPersonId === p.id}
-            isMenuOpen={menuId === p.id}
-            total={personTotals[p.id].total}
-            currency={currency}
-            onPress={(id) => {
-              if (menuId) setMenuId(null);
-              else if (selectedItemId) toggleAssignment(selectedItemId, id);
-            }}
-            onEdit={startEditing}
-            onDelete={deletePerson}
-            onCloseMenu={() => setMenuId(null)}
-            pendingName={pendingName}
-            setPendingName={setPendingName}
-            onFinalize={handleFinalizePerson}
-            inputRef={personInputRef}
-            longPressProps={{
-              onMouseDown: () => longPress.onMouseDown(p.id),
-              onMouseUp: () => longPress.onMouseUp(),
-              onMouseLeave: () => longPress.onMouseLeave(),
-              onTouchStart: () => longPress.onTouchStart(p.id),
-              onTouchEnd: () => longPress.onTouchEnd(),
-            }}
-          />
-        ))}
+        {people.map(p => {
+          const isSelected = viewMode === VIEW_MODES.PEOPLE && selectedPersonId === p.id;
+          const isHighlighted = viewMode === VIEW_MODES.RECEIPT && selectedItemId && (assignments[selectedItemId] || []).includes(p.id);
+          
+          return (
+            <PersonCard 
+              key={p.id}
+              person={p}
+              isAssigned={isSelected || isHighlighted}
+              isEditing={editingPersonId === p.id}
+              isMenuOpen={menuId === p.id}
+              total={personTotals[p.id].total}
+              currency={currency}
+              onPress={(id) => {
+                if (menuId) setMenuId(null);
+                else if (viewMode === VIEW_MODES.RECEIPT) {
+                  if (selectedItemId) toggleAssignment(selectedItemId, id);
+                } else {
+                  setSelectedPersonId(prev => prev === id ? null : id);
+                }
+              }}
+              onEdit={startEditing}
+              onDelete={deletePerson}
+              onCloseMenu={() => setMenuId(null)}
+              pendingName={pendingName}
+              setPendingName={setPendingName}
+              onFinalize={handleFinalizePerson}
+              inputRef={personInputRef}
+              longPressProps={{
+                onMouseDown: () => longPress.onMouseDown(p.id),
+                onMouseUp: () => longPress.onMouseUp(),
+                onMouseLeave: () => longPress.onMouseLeave(),
+                onTouchStart: () => longPress.onTouchStart(p.id),
+                onTouchEnd: () => longPress.onTouchEnd(),
+              }}
+            />
+          );
+        })}
       </Header>
       
       <input 
@@ -462,16 +480,27 @@ export default function App() {
 
         {items.length > 0 && (
           <div className="space-y-3">
-            {items.map(item => (
-              <ReceiptItem 
-                key={item.id}
-                item={item}
-                isSelected={selectedItemId === item.id}
-                onClick={() => setSelectedItemId(prev => prev === item.id ? null : item.id)}
-                currency={currency}
-                assignedPeople={people.filter(p => assignments[item.id]?.includes(p.id))}
-              />
-            ))}
+            {items.map(item => {
+              const isSelected = viewMode === VIEW_MODES.RECEIPT && selectedItemId === item.id;
+              const isHighlighted = viewMode === VIEW_MODES.PEOPLE && selectedPersonId && (assignments[item.id] || []).includes(selectedPersonId);
+
+              return (
+                <ReceiptItem 
+                  key={item.id}
+                  item={item}
+                  isSelected={isSelected || isHighlighted}
+                  onClick={() => {
+                    if (viewMode === VIEW_MODES.RECEIPT) {
+                      setSelectedItemId(prev => prev === item.id ? null : item.id);
+                    } else if (selectedPersonId) {
+                      toggleAssignment(item.id, selectedPersonId);
+                    }
+                  }}
+                  currency={currency}
+                  assignedPeople={people.filter(p => assignments[item.id]?.includes(p.id))}
+                />
+              );
+            })}
 
             <div className="bg-slate-900 p-5 rounded-[1.75rem] border-2 border-slate-800 shadow-xl text-white cursor-default">
               <div className="flex items-center justify-between">
@@ -524,6 +553,13 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {(items.length > 0 || isScanning) && (
+        <BottomBar
+          unassignedItems={unassignedItems}
+          currency={currency}
+        />
+      )}
     </div>
   );
 }
