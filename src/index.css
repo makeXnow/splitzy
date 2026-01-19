@@ -3,8 +3,20 @@
 @tailwind utilities;
 
 @layer base {
-  body {
+  html, body {
     @apply antialiased overflow-x-hidden;
+    overscroll-behavior-x: none;
+    touch-action: pan-y;
+    width: 100%;
+    min-height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  #root {
+    width: 100%;
+    overflow-x: hidden;
+    touch-action: pan-y;
   }
 }
 

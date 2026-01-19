@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Pencil, Trash2, X } from 'lucide-react';
 import { getThemeClasses } from '../constants';
 
@@ -31,7 +31,7 @@ export default function PersonCard({
       >
         <div className="min-w-0 flex flex-col items-center w-full px-1">
           <div className="grid items-center" style={{ minWidth: '24px' }}>
-            <span className={`col-start-1 row-start-1 invisible text-sm font-black whitespace-pre px-1 ${themes.text}`}>
+            <span className={`col-start-1 row-start-1 invisible text-base font-black whitespace-pre px-1 ${themes.text}`}>
               {pendingName}
             </span>
             <input 
@@ -40,7 +40,7 @@ export default function PersonCard({
               value={pendingName} 
               onChange={(e) => setPendingName(e.target.value.slice(0, 20))} 
               onBlur={onFinalize} 
-              className={`col-start-1 row-start-1 w-0 min-w-full bg-transparent border-none p-0 text-sm font-black focus:ring-0 outline-none leading-tight text-center ${themes.text}`} 
+              className={`col-start-1 row-start-1 w-0 min-w-full bg-transparent border-none p-0 text-base font-black focus:ring-0 outline-none leading-tight text-center ${themes.text}`} 
             />
           </div>
           <p className={`text-[10px] font-black leading-none mt-1 opacity-60 text-center ${themes.text}`}>
@@ -63,7 +63,7 @@ export default function PersonCard({
       style={{ minWidth: '72px' }}
     >
       <div className="min-w-0 flex flex-col items-center w-full px-1">
-        <p className={`font-black text-sm leading-tight text-center w-fit px-1 ${themes.text}`}>{person.name}</p>
+        <p className={`font-black text-base leading-tight text-center w-fit px-1 ${themes.text}`}>{person.name}</p>
         <p className={`text-[10px] font-black leading-none mt-1 text-center opacity-60 ${themes.text}`}>
           {currency}{total.toFixed(2)}
         </p>

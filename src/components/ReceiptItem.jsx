@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { getThemeClasses } from '../constants';
 
 export function PersonChip({ person, size = 'sm' }) {

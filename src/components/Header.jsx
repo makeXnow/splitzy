@@ -1,6 +1,5 @@
-import React from 'react';
 import { FileText, Users, RefreshCcw, ArrowLeft, Plus } from 'lucide-react';
-import { VIEW_MODES, getThemeClasses } from '../constants';
+import { VIEW_MODES } from '../constants';
 
 export default function Header({ 
   viewMode, 
@@ -11,18 +10,11 @@ export default function Header({
   children, 
   isAddingPerson,
   startAdding,
-  addPreview,
-  pendingName,
-  setPendingName,
-  onFinalizePerson,
-  personInputRef,
-  currency,
   people
 }) {
-  const themeClasses = addPreview ? getThemeClasses(addPreview.theme) : null;
 
   return (
-    <div className="absolute top-0 left-0 right-0 z-40 overflow-visible">
+    <div className={`${(hasItems && !isScanning) ? 'relative' : 'absolute'} top-0 left-0 right-0 z-40 overflow-visible`}>
       <div className={`absolute inset-0 backdrop-blur-xl border-b transition-colors duration-500 ${
         isScanning 
           ? 'bg-black/20 dark:bg-black/40 border-white/10' 
@@ -33,7 +25,7 @@ export default function Header({
         <div className="flex justify-between items-center p-4">
           <div className="flex items-center gap-2">
             <div className="w-10 h-10 overflow-hidden" style={{ borderRadius: '22.5%' }}>
-               <img src="/icon.png" alt="Splitzy Logo" className="w-full h-full object-cover" />
+               <img src={`${import.meta.env.BASE_URL}icon.png`} alt="Splitzy Logo" className="w-full h-full object-cover" />
             </div>
             <h1 className={`text-2xl font-black tracking-tight ${isScanning || !hasItems ? 'text-white' : 'text-slate-900 dark:text-white'}`}>Splitzy</h1>
           </div>
@@ -74,13 +66,13 @@ export default function Header({
 
               <button 
                 onClick={startAdding} 
-                className={`w-[72px] h-[72px] flex items-center justify-center rounded-2xl border-2 border-dashed transition-all shrink-0 active:scale-90 ${
+                className={`h-[72px] flex-1 max-w-[72px] min-w-[36px] flex items-center justify-center rounded-2xl border-2 border-dashed transition-all active:scale-90 ${
                   isScanning 
                     ? 'bg-white/10 border-white/20 text-white' 
                     : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-400 hover:border-slate-300 dark:hover:border-slate-700'
                 }`}
               >
-                <Plus size={32} strokeWidth={3} />
+                <Plus size={24} strokeWidth={3} className="shrink-0" />
               </button>
 
               {/* Add People Hint */}

@@ -45,7 +45,6 @@ export function useSplitLogic(items, people, assignments, receiptTotal, extras =
       }; 
     });
 
-    let claimedSubtotalValue = 0;
     items.forEach(item => {
       const assigned = assignments[item.id] || [];
       if (assigned.length > 0) {
@@ -53,15 +52,17 @@ export function useSplitLogic(items, people, assignments, receiptTotal, extras =
         assigned.forEach(pid => {
           if (shares[pid]) {
             shares[pid].subtotal += splitPrice;
-            claimedSubtotalValue += splitPrice;
           }
         });
       }
     });
 
     people.forEach(p => {
-      if (claimedSubtotalValue > 0) {
-        const weight = shares[p.id].subtotal / claimedSubtotalValue;
+      const myUnassignedShare = people.length > 0 ? unclaimedTotal / people.length : 0;
+      shares[p.id].unassignedShare = myUnassignedShare;
+
+      if (subtotal > 0) {
+        const weight = (shares[p.id].subtotal + myUnassignedShare) / subtotal;
         
         // Split each extra prorated
         shares[p.id].breakdown.tax = (extras.tax || 0) * weight;
@@ -78,15 +79,11 @@ export function useSplitLogic(items, people, assignments, receiptTotal, extras =
         shares[p.id].adjustment = adjustmentTotal * share;
       }
 
-      if (people.length > 0) {
-        shares[p.id].unassignedShare = unclaimedTotal / people.length;
-      }
-
       shares[p.id].total = shares[p.id].subtotal + shares[p.id].extras + shares[p.id].adjustment + shares[p.id].unassignedShare;
     });
 
     return shares;
-  }, [items, assignments, people, extras, extrasTotal, adjustmentTotal, unclaimedTotal]);
+  }, [items, assignments, people, extras, extrasTotal, adjustmentTotal, unclaimedTotal, subtotal]);
 
   return {
     subtotal,

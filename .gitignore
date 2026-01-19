@@ -1,13 +1,13 @@
 # dependencies
-node_modules/
-.pnp
+/node_modules
+/.pnp
 .pnp.js
 
 # testing
-coverage/
+/coverage
 
 # production
-dist/
+/dist
 
 # misc
 .DS_Store
@@ -15,9 +15,6 @@ dist/
 .env.local
 .env.development.local
 .env.test.local
-.env.production.local
-
-npm-debug.log*
+.env.production.localnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.cursor/

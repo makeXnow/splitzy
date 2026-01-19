@@ -1,9 +1,9 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Loader2, Plus, PieChart, Image, Copy, Check } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { Plus, PieChart, Image, Copy, Check } from 'lucide-react';
 
 // Services & Constants
 import { callOpenAI as callAI } from './api/openai';
-import { PRESETS, VIEW_MODES } from './constants';
+import { PRESETS, VIEW_MODES, COLOR_THEMES } from './constants';
 
 // Hooks
 import { useLongPress } from './hooks/useLongPress';
@@ -34,6 +34,46 @@ export default function App() {
   const [currency, setCurrency] = useState('$');
   const [people, setPeople] = useState([]);
   const [assignments, setAssignments] = useState({});
+  const [colorSequence, setColorSequence] = useState([]);
+
+  // --- Color Logic ---
+  const sortColors = useCallback(() => {
+    let currentPicked = new Set();
+    let currentScores = new Array(COLOR_THEMES.length).fill(0);
+    let sequence = [];
+
+    while (currentPicked.size < COLOR_THEMES.length) {
+      const availableIndices = COLOR_THEMES.map((_, i) => i).filter(i => !currentPicked.has(i));
+      
+      let currentMax = -1;
+      availableIndices.forEach(idx => {
+        if (currentScores[idx] > currentMax) currentMax = currentScores[idx];
+      });
+
+      const candidates = availableIndices.filter(idx => currentScores[idx] === currentMax);
+      const chosenIdx = candidates[Math.floor(Math.random() * candidates.length)];
+      
+      currentPicked.add(chosenIdx);
+      sequence.push(COLOR_THEMES[chosenIdx]);
+
+      currentScores = COLOR_THEMES.map((_, i) => {
+        if (currentPicked.has(i)) return 0;
+        let minDistance = Infinity;
+        currentPicked.forEach(pIdx => {
+          const directDist = Math.abs(i - pIdx);
+          const wrapDist = COLOR_THEMES.length - directDist;
+          const dist = Math.min(directDist, wrapDist);
+          if (dist < minDistance) minDistance = dist;
+        });
+        return Math.min(minDistance, 4);
+      });
+    }
+    setColorSequence(sequence);
+  }, []);
+
+  useEffect(() => {
+    sortColors();
+  }, [sortColors]);
 
   // --- Form State ---
   const [isAddingPerson, setIsAddingPerson] = useState(false);
@@ -47,53 +87,51 @@ export default function App() {
   const videoRef = useRef(null);
 
   // --- Logic Hook ---
+  const activePeople = isAddingPerson && addPreview 
+    ? [...people, { id: 'pending-person', name: pendingName || '', ...addPreview }] 
+    : people;
+
   const {
-    unassignedItems,
     unclaimedTotal,
-    personTotals,
-    extrasTotal
+    personTotals
   } = useSplitLogic(
     items, 
-    isAddingPerson && addPreview 
-      ? [...people, { id: 'pending-person', name: pendingName || '...', ...addPreview }] 
-      : people, 
+    activePeople, 
     assignments, 
     receiptTotal, 
     extras
   );
 
-  // --- Camera Effect ---
-  useEffect(() => {
-    let currentStream = null;
-
-    async function startCamera() {
-      if (items.length === 0 && !isScanning && !error) {
-        try {
-          currentStream = await navigator.mediaDevices.getUserMedia({
-            video: { 
-              facingMode: 'environment',
-              aspectRatio: { ideal: 9/16 }
-            }
-          });
-          setStream(currentStream);
-          if (videoRef.current) {
-            videoRef.current.srcObject = currentStream;
-          }
-        } catch (err) {
-          console.error("Camera error:", err);
-          setError("Please enable camera access to scan receipts.");
+  // --- Camera Logic ---
+  const startCamera = useCallback(async () => {
+    try {
+      const currentStream = await navigator.mediaDevices.getUserMedia({
+        video: { 
+          facingMode: 'environment'
         }
+      });
+      setStream(currentStream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = currentStream;
       }
+      setError(null);
+    } catch (err) {
+      console.error("Camera error:", err);
+      setError("Please enable camera access to scan receipts.");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (items.length === 0 && !isScanning && !error && !stream) {
+      startCamera();
     }
 
-    startCamera();
-
     return () => {
-      if (currentStream) {
-        currentStream.getTracks().forEach(track => track.stop());
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
       }
     };
-  }, [items.length, isScanning, error]);
+  }, [items.length, isScanning, error, stream, startCamera]);
 
   // --- Auto-focus effect ---
   useEffect(() => {
@@ -259,11 +297,9 @@ IMPORTANT: Do not include summary items like Subtotal, Total, Tax, Tip, or Fees 
 
   const startAdding = () => {
     const usedThemes = people.map(p => p.theme);
-    const pool = PRESETS.filter(p => !usedThemes.includes(p.theme));
-    const randomPreset = (pool.length ? pool : PRESETS)[
-      Math.floor(Math.random() * (pool.length || PRESETS.length))
-    ];
-    setAddPreview(randomPreset);
+    const nextTheme = colorSequence.find(theme => !usedThemes.includes(theme)) || colorSequence[0];
+    
+    setAddPreview({ theme: nextTheme });
     setIsAddingPerson(true);
     setMenuId(null);
   };
@@ -326,7 +362,7 @@ IMPORTANT: Do not include summary items like Subtotal, Total, Tax, Tip, or Fees 
 
   return (
     <div 
-      className="flex flex-col h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans select-none"
+      className="flex flex-col h-[100dvh] w-screen max-w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans select-none overflow-x-hidden"
     >
       <style>{`
         @keyframes echo-ring {
@@ -419,7 +455,7 @@ IMPORTANT: Do not include summary items like Subtotal, Total, Tax, Tip, or Fees 
         {isAddingPerson && (
           <PersonCard 
             key="pending-person"
-            person={{ id: 'pending-person', name: pendingName || '...', ...addPreview }}
+            person={{ id: 'pending-person', name: pendingName || '', ...addPreview }}
             isAssigned={false}
             isEditing={true}
             isMenuOpen={false}
@@ -442,18 +478,18 @@ IMPORTANT: Do not include summary items like Subtotal, Total, Tax, Tip, or Fees 
         type="file" 
         ref={uploadInputRef} 
         className="hidden" 
-        accept="image/*,.heic,.heif" 
+        accept="image/jpeg,image/png,image/webp,image/heic,image/heif" 
         onChange={handleFileChange} 
       />
 
       <main 
-        className={`flex-1 overflow-y-auto ${items.length > 0 ? 'p-4 pt-52 max-w-2xl mx-auto w-full' : ''}`}
+        className={`flex-1 ${(items.length > 0 || isScanning || error) ? 'overflow-y-auto' : 'overflow-hidden'} ${items.length > 0 ? 'p-4 max-w-2xl mx-auto w-full' : ''}`}
         style={{ 
           paddingBottom: (items.length > 0) ? '40px' : '0' 
         }}
       >
         {error && (
-          <div className="mx-4 mb-6 p-4 bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-800 rounded-2xl text-rose-600 dark:text-rose-400 text-sm font-bold flex items-start gap-3 relative z-50 mt-24">
+          <div className="mx-4 mb-6 p-4 bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-800 rounded-2xl text-rose-600 dark:text-rose-400 text-sm font-bold flex items-start gap-3 relative z-50">
             <span className="flex-1 pt-1.5">{error}</span>
             <div className="flex items-center gap-1 shrink-0">
               <button 
@@ -485,7 +521,7 @@ IMPORTANT: Do not include summary items like Subtotal, Total, Tax, Tip, or Fees 
             />
             
             {/* Capture Button Overlay */}
-            <div className="absolute bottom-12 left-0 right-0 flex items-center justify-center px-8">
+            <div className="absolute bottom-8 sm:bottom-12 left-0 right-0 flex items-center justify-center px-8 pb-[env(safe-area-inset-bottom)]">
               <button 
                 onClick={() => uploadInputRef.current?.click()}
                 className="absolute left-8 w-14 h-14 rounded-2xl bg-black/20 dark:bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white active:scale-90 transition-all shadow-lg"
@@ -622,7 +658,7 @@ IMPORTANT: Do not include summary items like Subtotal, Total, Tax, Tip, or Fees 
             </div>
 
             {/* Combined Breakdown Card */}
-            {people.length > 0 && (
+            {activePeople.length > 0 && (
               <div className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border-2 border-slate-100 dark:border-slate-800 shadow-sm space-y-8">
                 <div className="flex flex-col items-center gap-1">
                   <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">Personal Breakdowns</h2>
@@ -630,7 +666,7 @@ IMPORTANT: Do not include summary items like Subtotal, Total, Tax, Tip, or Fees 
                 </div>
                 
                 <div className="space-y-12">
-                  {people.map(person => (
+                  {activePeople.map(person => (
                     <PersonSummary 
                       key={person.id}
                       person={person}
@@ -642,7 +678,7 @@ IMPORTANT: Do not include summary items like Subtotal, Total, Tax, Tip, or Fees 
                       unassignedShare={personTotals[person.id]?.unassignedShare || 0}
                       breakdown={personTotals[person.id]?.breakdown || {}}
                       adjustment={personTotals[person.id]?.adjustment || 0}
-                      peopleCount={people.length}
+                      peopleCount={activePeople.length}
                     />
                   ))}
                 </div>

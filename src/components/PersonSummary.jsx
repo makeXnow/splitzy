@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Banknote, HeartHandshake } from 'lucide-react';
 import { getThemeClasses } from '../constants';
 
@@ -8,7 +8,6 @@ export default function PersonSummary({
   assignments, 
   currency, 
   personTotal, 
-  personExtras,
   unassignedShare,
   peopleCount,
   breakdown,
