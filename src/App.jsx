@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Plus, PieChart, Image, Copy, Check } from 'lucide-react';
 
 // Services & Constants
-import { callOpenAI as callAI } from './api/openai';
+import { callGemini as callAI } from './api/gemini';
 import { PRESETS, VIEW_MODES, COLOR_THEMES } from './constants';
 
 // Hooks
@@ -142,6 +142,7 @@ export default function App() {
 
   // --- Handlers ---
   const processImage = async (base64, mimeType = 'image/jpeg') => {
+    console.log('DEBUG: processImage entry', { mimeType, base64Length: base64.length });
     setIsScanning(true);
     setError(null);
     setSelectedItemId(null);
@@ -165,7 +166,9 @@ Extract all line items with their prices, the total amount, and the currency sym
 Return ONLY a JSON object with this exact structure: {"items": [{"name": "item name", "price": 0.00}], "tax": 0.00, "tip": 0.00, "fees": 0.00, "total": 0.00, "currencySymbol": "$"}.
 
 IMPORTANT: Do not include summary items like Subtotal, Total, Tax, Tip, or Fees in the 'items' list.`;
+      console.log('DEBUG: calling callAI');
       const result = await callAI(prompt, base64, mimeType);
+      console.log('DEBUG: callAI result received', { resultKeys: Object.keys(result || {}) });
       
       if (result.items) {
         // Double check filtering of summary items
@@ -193,7 +196,12 @@ IMPORTANT: Do not include summary items like Subtotal, Total, Tax, Tip, or Fees 
         setAssignments({});
       }
     } catch (err) {
-      setError(err.message || "AI failed to read receipt.");
+      console.error("Scanning error details:", {
+        message: err.message,
+        stack: err.stack,
+        name: err.name
+      });
+      setError(`Scanning failed: ${err.message}. Check console for details.`);
     } finally {
       setIsScanning(false);
     }
@@ -202,11 +210,30 @@ IMPORTANT: Do not include summary items like Subtotal, Total, Tax, Tip, or Fees 
   const capture = () => {
     if (!videoRef.current) return;
     
+    const video = videoRef.current;
+    const originalWidth = video.videoWidth;
+    const originalHeight = video.videoHeight;
+    
+    // Smart resizing: max 2000px on longest side
+    const MAX_DIM = 2000;
+    let targetWidth = originalWidth;
+    let targetHeight = originalHeight;
+    
+    if (originalWidth > MAX_DIM || originalHeight > MAX_DIM) {
+      if (originalWidth > originalHeight) {
+        targetWidth = MAX_DIM;
+        targetHeight = (originalHeight / originalWidth) * MAX_DIM;
+      } else {
+        targetHeight = MAX_DIM;
+        targetWidth = (originalWidth / originalHeight) * MAX_DIM;
+      }
+    }
+
     const canvas = document.createElement('canvas');
-    canvas.width = videoRef.current.videoWidth;
-    canvas.height = videoRef.current.videoHeight;
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
     const ctx = canvas.getContext('2d');
-    ctx.drawImage(videoRef.current, 0, 0);
+    ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
     
     const base64 = canvas.toDataURL('image/jpeg', 0.85);
     setCapturedImage(base64);
@@ -230,15 +257,44 @@ IMPORTANT: Do not include summary items like Subtotal, Total, Tax, Tip, or Fees 
     const decode = (await import('heic-decode')).default;
     
     // Decode HEIC to raw pixel data
-    const { width, height, data } = await decode({ buffer: uint8Array });
+    const { width: originalWidth, height: originalHeight, data } = await decode({ buffer: uint8Array });
+    
+    // Smart resizing: max 2000px on longest side
+    const MAX_DIM = 2000;
+    let targetWidth = originalWidth;
+    let targetHeight = originalHeight;
+    
+    if (originalWidth > MAX_DIM || originalHeight > MAX_DIM) {
+      if (originalWidth > originalHeight) {
+        targetWidth = MAX_DIM;
+        targetHeight = (originalHeight / originalWidth) * MAX_DIM;
+      } else {
+        targetHeight = MAX_DIM;
+        targetWidth = (originalWidth / originalHeight) * MAX_DIM;
+      }
+    }
     
     // Create canvas and draw pixel data
     const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
     const ctx = canvas.getContext('2d');
-    const imageData = new ImageData(new Uint8ClampedArray(data), width, height);
-    ctx.putImageData(imageData, 0, 0);
+    
+    // Use a temporary canvas to resize the raw pixel data if needed
+    if (targetWidth !== originalWidth || targetHeight !== originalHeight) {
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = originalWidth;
+      tempCanvas.height = originalHeight;
+      const tempCtx = tempCanvas.getContext('2d');
+      const imageData = new ImageData(new Uint8ClampedArray(data), originalWidth, originalHeight);
+      tempCtx.putImageData(imageData, 0, 0);
+      
+      // Draw from temp canvas to target canvas (resizing)
+      ctx.drawImage(tempCanvas, 0, 0, targetWidth, targetHeight);
+    } else {
+      const imageData = new ImageData(new Uint8ClampedArray(data), originalWidth, originalHeight);
+      ctx.putImageData(imageData, 0, 0);
+    }
     
     // Convert canvas to JPEG blob
     return new Promise((resolve, reject) => {
@@ -279,7 +335,36 @@ IMPORTANT: Do not include summary items like Subtotal, Total, Tax, Tip, or Fees 
       // Read the file as base64
       const base64 = await new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
+        reader.onload = async (e) => {
+          const img = document.createElement('img');
+          img.onload = () => {
+            const originalWidth = img.width;
+            const originalHeight = img.height;
+            const MAX_DIM = 2000;
+            
+            let targetWidth = originalWidth;
+            let targetHeight = originalHeight;
+            
+            if (originalWidth > MAX_DIM || originalHeight > MAX_DIM) {
+              if (originalWidth > originalHeight) {
+                targetWidth = MAX_DIM;
+                targetHeight = (originalHeight / originalWidth) * MAX_DIM;
+              } else {
+                targetHeight = MAX_DIM;
+                targetWidth = (originalWidth / originalHeight) * MAX_DIM;
+              }
+            }
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+            resolve(canvas.toDataURL('image/jpeg', 0.85));
+          };
+          img.onerror = () => reject(new Error("Failed to load image for resizing"));
+          img.src = e.target.result;
+        };
         reader.onerror = () => reject(new Error("Failed to read file"));
         reader.readAsDataURL(fileToProcess);
       });
